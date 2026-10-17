@@ -1,5 +1,6 @@
 package com.supportdesk;
 
-public class ss
+public class TestClass
 {
 }
+
