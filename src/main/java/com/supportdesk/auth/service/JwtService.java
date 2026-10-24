@@ -23,6 +23,10 @@ public class JwtService
     public record IssuedToken(String token, Instant expiresAt)
     {
     }
+
+    public record VerifiedToken(String username, int tokenVersion)
+    {
+    }
     private final SecretKey signingKey;
     private final Duration sessionTimeout;
     private final Clock clock;
@@ -44,6 +48,7 @@ public class JwtService
                 .subject(user.getUsername())
                 .claim("uid", user.getId())
                 .claim("role", user.getRole().name())
+                .claim("tv", user.getTokenVersion())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiresAt))
                 .signWith(signingKey)
@@ -53,7 +58,7 @@ public class JwtService
     }
 
 
-    public Optional<String> validateAndGetUsername(String token) {
+    public Optional<VerifiedToken> validate(String token) {
         try {
             Claims claims = Jwts.parser()
                     .verifyWith(signingKey)
@@ -61,7 +66,12 @@ public class JwtService
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-            return Optional.ofNullable(claims.getSubject());
+            Integer tokenVersion = claims.get("tv", Integer.class);
+            // Tokens issued before token versioning have no "tv" claim and are treated as invalid.
+            if (claims.getSubject() == null || tokenVersion == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new VerifiedToken(claims.getSubject(), tokenVersion));
         } catch (JwtException | IllegalArgumentException ex) {
             return Optional.empty();
         }

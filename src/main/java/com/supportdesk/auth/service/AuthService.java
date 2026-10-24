@@ -8,6 +8,7 @@ import com.supportdesk.auth.exception.AccountLockedException;
 import com.supportdesk.auth.exception.InvalidCredentialsException;
 import com.supportdesk.auth.repository.UserRepository;
 import com.supportdesk.common.exception.ApiException;
+import com.supportdesk.common.exception.UnauthenticatedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -71,5 +72,14 @@ public class AuthService {
 
         // TODO (step 3, audit): publish LoginSucceededEvent / LoginFailedEvent / AccountLockedEvent.
         return LoginResponse.bearer(issued.token(), issued.expiresAt(), UserDto.from(user));
+    }
+
+
+    @Transactional
+    public void logout(Long userId)
+    {
+        userRepository.findById(userId)
+                .orElseThrow(UnauthenticatedException::new)
+                .revokeTokens();
     }
 }
