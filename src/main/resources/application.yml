@@ -3,17 +3,22 @@ spring:
     name: support-desk
   profiles:
     default: local
+  docker:
+    compose:
+      enabled: false
   jpa:
     open-in-view: false
     hibernate:
       ddl-auto: validate
   flyway:
     enabled: true
+    default-schema: public
+    schemas: public
 
 supportdesk:
   auth:
     jwt-secret: ${JWT_SECRET}
-    session-timeout: 30m
+    session-timeout: 5m
     max-failed-attempts: 5
     lock-duration: 15m
   cors:
