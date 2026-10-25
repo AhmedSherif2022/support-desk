@@ -1,12 +1,9 @@
 CREATE TABLE users
 (
     id                    BIGSERIAL    PRIMARY KEY,
-    username              VARCHAR(100) NOT NULL  ,
+    username              VARCHAR(100) NOT NULL,
     password_hash         VARCHAR(100) NOT NULL,
     full_name             VARCHAR(150) NOT NULL,
-    email                 VARCHAR(255) NOT NULL UNIQUE,
-    is_verified           BOOLEAN NOT NULL DEFAULT FALSE,
-    mobile_number         VARCHAR(20)  NOT NULL UNIQUE,
     role                  VARCHAR(30)  NOT NULL,
     active                BOOLEAN      NOT NULL DEFAULT TRUE,
     failed_login_attempts INT          NOT NULL DEFAULT 0,
