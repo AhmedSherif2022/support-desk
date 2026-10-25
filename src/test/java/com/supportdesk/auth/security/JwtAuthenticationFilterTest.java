@@ -7,6 +7,7 @@ import com.supportdesk.auth.repository.UserRepository;
 import com.supportdesk.auth.service.AuthService;
 import com.supportdesk.auth.service.JwtService;
 import com.supportdesk.auth.service.LoginAttemptService;
+import com.supportdesk.auth.service.RefreshTokenService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,9 @@ import java.util.Base64;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +41,9 @@ class JwtAuthenticationFilterTest
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private RefreshTokenService refreshTokenService;
 
     private JwtService jwtService;
     private AuthService authService;
@@ -52,11 +58,11 @@ class JwtAuthenticationFilterTest
         jwtService = new JwtService(
                 new AuthProperties(secret, Duration.ofMinutes(30), 5, Duration.ofMinutes(15)), clock);
         authService = new AuthService(
-                userRepository, mock(PasswordEncoder.class), mock(LoginAttemptService.class), jwtService);
+                userRepository, mock(PasswordEncoder.class), mock(LoginAttemptService.class), jwtService, refreshTokenService);
         filter = new JwtAuthenticationFilter(jwtService, userRepository, clock);
 
-        user = new User("agent", "hash", "Agent Smith", Role.AGENT);
-        when(userRepository.findByUsernameIgnoreCase("agent")).thenReturn(Optional.of(user));
+        user = new User("agent", "hash", "Agent Smith", "agent@example.com", "+201000000000", Role.AGENT);
+        lenient().when(userRepository.findByUsernameIgnoreCase("agent")).thenReturn(Optional.of(user));
     }
 
     @AfterEach
@@ -91,6 +97,14 @@ class JwtAuthenticationFilterTest
         String newToken = jwtService.generateToken(user).token();
 
         assertThat(filterWith(newToken)).isNotNull();
+    }
+
+    @Test
+    void logoutDeletesRefreshToken()
+    {
+        logout();
+
+        verify(refreshTokenService).deleteByUserId(USER_ID);
     }
 
     private void logout()

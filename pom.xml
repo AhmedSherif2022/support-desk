@@ -20,7 +20,9 @@
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
-        <lombok.version>1.18.36</lombok.version>
+        <lombok.version>1.18.48</lombok.version>
+        <!-- Overrides Spring Boot's managed Byte Buddy: the 3.4.1 default can't instrument classes on JDK 25+, so Mockito fails -->
+        <byte-buddy.version>1.18.16</byte-buddy.version>
     </properties>
 
     <dependencies>

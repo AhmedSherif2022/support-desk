@@ -2,14 +2,18 @@ package com.supportdesk.auth.controller;
 
 import com.supportdesk.auth.dto.*;
 import com.supportdesk.auth.entity.RefreshToken;
+import com.supportdesk.auth.security.AuthenticatedUser;
 import com.supportdesk.auth.service.*;
+import com.supportdesk.common.exception.UnauthenticatedException;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 
@@ -57,7 +61,7 @@ public class AuthController
                             .accessToken(accessToken)
                             .token(refreshTokenReuest.getToken())
                             .build();
-                }).orElseThrow(() -> new RuntimeException("Invalid Refresh Token"));
+                }).orElseThrow(UnauthenticatedException::new); // unknown token, e.g. deleted on logout
     }
 
 
@@ -71,10 +75,10 @@ public class AuthController
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout()
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@AuthenticationPrincipal AuthenticatedUser user)
     {
-        authService.logout(currentUserService.getCurrentUserId());
-        return ResponseEntity.noContent().build();
+        authService.logout(user.id());
     }
 
     @GetMapping("/me")

@@ -78,11 +78,13 @@ public class AuthService {
     }
 
 
+    // Kills both halves: access tokens via tokenVersion, refresh token via delete, so /refresh can't revive the session.
     @Transactional
     public void logout(Long userId)
     {
         userRepository.findById(userId)
                 .orElseThrow(UnauthenticatedException::new)
                 .revokeTokens();
+        refreshTokenService.deleteByUserId(userId);
     }
 }

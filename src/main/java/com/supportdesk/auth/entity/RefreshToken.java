@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 @Entity
-@Table(name = "refreshtokens")
+@Table(name = "refresh_tokens")
 @Data
 @Builder
 @NoArgsConstructor

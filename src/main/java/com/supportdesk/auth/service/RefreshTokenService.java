@@ -4,6 +4,7 @@ import com.supportdesk.auth.entity.RefreshToken;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.repository.RefreshTokenRepository;
 import com.supportdesk.auth.repository.UserRepository;
+import com.supportdesk.common.exception.UnauthenticatedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,11 @@ public class RefreshTokenService {
         return refreshTokenRepository.save(refreshToken);
     }
 
+    @Transactional
+    public void deleteByUserId(Long userId) {
+        refreshTokenRepository.deleteByUserId(userId);
+    }
+
     public Optional<RefreshToken> findByToken(String token) {
         return refreshTokenRepository.findByToken(token);
     }
@@ -40,7 +46,7 @@ public class RefreshTokenService {
     public RefreshToken VerifyExpiration(RefreshToken token) {
         if (token.getExpirydate().compareTo(Instant.now()) < 0) {
             refreshTokenRepository.delete(token);
-            throw new RuntimeException(" Refreash Token was Expired , please login again ");
+            throw new UnauthenticatedException();
         }
         return token;
     }

@@ -63,6 +63,10 @@ public class User extends BaseEntity {
 
     private Instant lastLoginAt;
 
+    // Bumped on logout; tokens carrying an older value are rejected.
+    @Column(nullable = false)
+    private int tokenVersion = 0;
+
      @Builder
     public User(String username, String passwordHash, String fullName, String email,String mobileNumber,Role role)
     {
@@ -76,6 +80,12 @@ public class User extends BaseEntity {
 
     public void markVerified() {
         this.isVerified = true;
+    }
+
+
+    public void revokeTokens()
+    {
+        this.tokenVersion++;
     }
 
 
