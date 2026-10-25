@@ -5,10 +5,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
 
@@ -17,8 +17,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "users")
 @Getter
-
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor()
 public class User extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 100)
@@ -31,11 +30,27 @@ public class User extends BaseEntity {
     @Column(nullable = false, length = 150)
     private String fullName;
 
+
+    @Size(max = 255)
+    @NotNull
+    @Column(name = "email", nullable = false)
+    private String email;
+
+
+
+    @ColumnDefault("false")
+    @Column(name = "is_verified", nullable = false)
+    private Boolean isVerified = false;
+
+
+    @Size(max = 20)
+    @Column(name = "mobile_number", length = 20, nullable = false)
+    private String mobileNumber;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     private Role role;
 
-    @Setter
 
     @Column(nullable = false)
     private boolean active = true;
@@ -48,13 +63,29 @@ public class User extends BaseEntity {
 
     private Instant lastLoginAt;
 
+    // Bumped on logout; tokens carrying an older value are rejected.
+    @Column(nullable = false)
+    private int tokenVersion = 0;
 
-    public User(String username, String passwordHash, String fullName, Role role)
+     @Builder
+    public User(String username, String passwordHash, String fullName, String email,String mobileNumber,Role role)
     {
         this.username = username;
         this.passwordHash = passwordHash;
         this.fullName = fullName;
+        this.email = email.trim().toLowerCase();
+        this.mobileNumber=mobileNumber;
         this.role = role;
+    }
+
+    public void markVerified() {
+        this.isVerified = true;
+    }
+
+
+    public void revokeTokens()
+    {
+        this.tokenVersion++;
     }
 
 
@@ -88,4 +119,6 @@ public class User extends BaseEntity {
         this.lockedUntil = null;
     }
 }
+
+
 

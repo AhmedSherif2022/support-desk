@@ -7,10 +7,13 @@ import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Version;
+import lombok.Getter;
+
 import java.time.Instant;
 /**
  * Parent of every entity. Gives each table: id, createdAt, updatedAt and version.
  */
+@Getter
 @MappedSuperclass
 public abstract class BaseEntity
 {
@@ -41,19 +44,4 @@ public abstract class BaseEntity
         this.updatedAt = Instant.now();
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public Long getVersion() {
-        return version;
-    }
 }

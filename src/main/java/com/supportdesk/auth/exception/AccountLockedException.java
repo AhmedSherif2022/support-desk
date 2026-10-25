@@ -1,10 +1,12 @@
 package com.supportdesk.auth.exception;
 import com.supportdesk.common.exception.ApiException;
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
 
 
+@Getter
 public class AccountLockedException extends ApiException
 {
 
@@ -17,8 +19,4 @@ public class AccountLockedException extends ApiException
         this.lockedUntil = lockedUntil;
     }
 
-    public Instant getLockedUntil()
-    {
-        return lockedUntil;
-    }
 }

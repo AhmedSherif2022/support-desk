@@ -45,8 +45,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter
 
             String token = header.substring(BEARER_PREFIX.length()).trim();
 
-            jwtService.validateAndGetUsername(token)
-                    .flatMap(userRepository::findByUsernameIgnoreCase)
+            jwtService.validate(token)
+                    .flatMap(verified -> userRepository.findByUsernameIgnoreCase(verified.username())
+                            // A token issued before the user's last logout is revoked.
+                            .filter(user -> user.getTokenVersion() == verified.tokenVersion()))
                     // A disabled or locked user is kicked out even if their token is still valid.
                     .filter(User::isActive)
                     .filter(user -> !user.isLocked(clock.instant()))

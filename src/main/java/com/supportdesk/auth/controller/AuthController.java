@@ -1,16 +1,19 @@
 package com.supportdesk.auth.controller;
 
-import com.supportdesk.auth.dto.LoginRequest;
-import com.supportdesk.auth.dto.LoginResponse;
-import com.supportdesk.auth.dto.UserDto;
-import com.supportdesk.auth.service.AuthService;
-import com.supportdesk.auth.service.CurrentUserService;
+import com.supportdesk.auth.dto.*;
+import com.supportdesk.auth.entity.RefreshToken;
+import com.supportdesk.auth.security.AuthenticatedUser;
+import com.supportdesk.auth.service.*;
+import com.supportdesk.common.exception.UnauthenticatedException;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 
@@ -21,13 +24,47 @@ public class AuthController
 
     private final AuthService authService;
     private final CurrentUserService currentUserService;
+    private final RegistrationService registrationService;
+    private final RefreshTokenService refreshTokenService;
+    private final JwtService jwtService;
 
-
-    public AuthController(AuthService authService, CurrentUserService currentUserService)
+    public AuthController(AuthService authService,
+                          CurrentUserService currentUserService,
+                          RegistrationService registrationService
+                         ,RefreshTokenService refreshTokenService
+                          ,JwtService jwtService)
     {
         this.authService = authService;
         this.currentUserService = currentUserService;
+        this.registrationService = registrationService;
+        this.refreshTokenService = refreshTokenService;
+        this.jwtService = jwtService;
     }
+
+    @PostMapping("/registration")
+    public ResponseEntity<String> registration
+            (@RequestBody @Valid RegistrationRequest registrationRequest){
+        boolean isSaved = registrationService.createAccount(registrationRequest);
+        if (isSaved ){
+            return ResponseEntity.status(HttpStatus.CREATED).body("Your Account Created Succsfully");
+        }else
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid Information");
+    }
+    @PostMapping("/refresh")
+    public JwtResponse refreshToken(@RequestBody RefreshTokenRequest refreshTokenReuest) {
+        return refreshTokenService.findByToken(refreshTokenReuest.getToken())
+                .map(refreshTokenService::VerifyExpiration)
+                .map(RefreshToken::getUser)
+                .map(user -> {
+                    String accessToken = jwtService.generateToken(user).token();
+                    return JwtResponse.builder()
+                            .accessToken(accessToken)
+                            .token(refreshTokenReuest.getToken())
+                            .build();
+                }).orElseThrow(UnauthenticatedException::new); // unknown token, e.g. deleted on logout
+    }
+
+
     @PostMapping("/login")
     public LoginResponse login(
             @Valid
@@ -38,9 +75,10 @@ public class AuthController
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout()
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@AuthenticationPrincipal AuthenticatedUser user)
     {
-        return ResponseEntity.noContent().build();
+        authService.logout(user.id());
     }
 
     @GetMapping("/me")

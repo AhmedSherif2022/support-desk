@@ -3,11 +3,13 @@ package com.supportdesk.auth.service;
 import com.supportdesk.auth.dto.LoginRequest;
 import com.supportdesk.auth.dto.LoginResponse;
 import com.supportdesk.auth.dto.UserDto;
+import com.supportdesk.auth.entity.RefreshToken;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.exception.AccountLockedException;
 import com.supportdesk.auth.exception.InvalidCredentialsException;
 import com.supportdesk.auth.repository.UserRepository;
 import com.supportdesk.common.exception.ApiException;
+import com.supportdesk.common.exception.UnauthenticatedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,6 +31,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;         // BCrypt bean from SecurityConfig
     private final LoginAttemptService loginAttemptService; // lockout rule
     private final JwtService jwtService;                   // create the token
+    private final RefreshTokenService refreshTokenService; // create refresh token
 
 
     @Transactional(noRollbackFor = ApiException.class)
@@ -68,8 +71,20 @@ public class AuthService {
 
         loginAttemptService.recordSuccess(user);
         JwtService.IssuedToken issued = jwtService.generateToken(user);
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getUsername());
 
         // TODO (step 3, audit): publish LoginSucceededEvent / LoginFailedEvent / AccountLockedEvent.
-        return LoginResponse.bearer(issued.token(), issued.expiresAt(), UserDto.from(user));
+        return LoginResponse.bearer(issued.token(), refreshToken.getToken(), issued.expiresAt(), UserDto.from(user));
+    }
+
+
+    // Kills both halves: access tokens via tokenVersion, refresh token via delete, so /refresh can't revive the session.
+    @Transactional
+    public void logout(Long userId)
+    {
+        userRepository.findById(userId)
+                .orElseThrow(UnauthenticatedException::new)
+                .revokeTokens();
+        refreshTokenService.deleteByUserId(userId);
     }
 }
