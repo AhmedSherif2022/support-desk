@@ -3,6 +3,7 @@ package com.supportdesk.auth.service;
 import com.supportdesk.auth.dto.LoginRequest;
 import com.supportdesk.auth.dto.LoginResponse;
 import com.supportdesk.auth.dto.UserDto;
+import com.supportdesk.auth.entity.RefreshToken;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.exception.AccountLockedException;
 import com.supportdesk.auth.exception.InvalidCredentialsException;
@@ -29,6 +30,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;         // BCrypt bean from SecurityConfig
     private final LoginAttemptService loginAttemptService; // lockout rule
     private final JwtService jwtService;                   // create the token
+    private final RefreshTokenService refreshTokenService; // create refresh token
 
 
     @Transactional(noRollbackFor = ApiException.class)
@@ -68,8 +70,9 @@ public class AuthService {
 
         loginAttemptService.recordSuccess(user);
         JwtService.IssuedToken issued = jwtService.generateToken(user);
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getUsername());
 
         // TODO (step 3, audit): publish LoginSucceededEvent / LoginFailedEvent / AccountLockedEvent.
-        return LoginResponse.bearer(issued.token(), issued.expiresAt(), UserDto.from(user));
+        return LoginResponse.bearer(issued.token(), refreshToken.getToken(), issued.expiresAt(), UserDto.from(user));
     }
 }
