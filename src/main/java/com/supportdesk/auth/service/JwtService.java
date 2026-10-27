@@ -31,7 +31,8 @@ public class JwtService
     private final Duration sessionTimeout;
     private final Clock clock;
 
-    public JwtService(AuthProperties properties, Clock clock) {
+    public JwtService(AuthProperties properties, Clock clock)
+    {
         byte[] keyBytes = Decoders.BASE64.decode(properties.jwtSecret());
         this.signingKey = Keys.hmacShaKeyFor(keyBytes); // fails at startup if the key is shorter than 256 bits
         this.sessionTimeout = properties.sessionTimeout();

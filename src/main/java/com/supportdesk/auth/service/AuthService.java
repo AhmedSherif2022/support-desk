@@ -74,7 +74,7 @@ public class AuthService {
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getUsername());
 
         // TODO (step 3, audit): publish LoginSucceededEvent / LoginFailedEvent / AccountLockedEvent.
-        return LoginResponse.bearer(issued.token(), refreshToken.getToken(), issued.expiresAt(), UserDto.from(user));
+        return new LoginResponse(issued.token(), refreshToken.getToken());
     }
 
 

@@ -16,13 +16,15 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class RefreshTokenService {
+public class RefreshTokenService
+{
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
 
     @Transactional
-    public RefreshToken createRefreshToken(String username) {
+    public RefreshToken createRefreshToken(String username)
+    {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
@@ -35,15 +37,18 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public void deleteByUserId(Long userId) {
+    public void deleteByUserId(Long userId)
+    {
         refreshTokenRepository.deleteByUserId(userId);
     }
 
-    public Optional<RefreshToken> findByToken(String token) {
+    public Optional<RefreshToken> findByToken(String token)
+    {
         return refreshTokenRepository.findByToken(token);
     }
 
-    public RefreshToken VerifyExpiration(RefreshToken token) {
+    public RefreshToken VerifyExpiration(RefreshToken token)
+    {
         if (token.getExpirydate().compareTo(Instant.now()) < 0) {
             refreshTokenRepository.delete(token);
             throw new UnauthenticatedException();
