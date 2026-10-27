@@ -78,11 +78,6 @@ public class User extends BaseEntity {
         this.role = role;
     }
 
-    public void markVerified() {
-        this.isVerified = true;
-    }
-
-
     public void revokeTokens()
     {
         this.tokenVersion++;

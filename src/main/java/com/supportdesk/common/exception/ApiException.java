@@ -1,26 +1,35 @@
 package com.supportdesk.common.exception;
+
+import com.supportdesk.common.enums.ErrorCode;
+import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
 
-public abstract class ApiException extends RuntimeException
+@Getter
+public class ApiException extends RuntimeException
 {
 
-    private final HttpStatus status;
-    private final String code;
+    private final ErrorCode errorCode;
 
-    protected ApiException(HttpStatus status, String code, String message)
+    public ApiException(ErrorCode errorCode)
+    {
+        this(errorCode, errorCode.getMessage());
+    }
+
+    // For messages that carry details, e.g. when a lock ends.
+    public ApiException(ErrorCode errorCode, String message)
     {
         super(message);
-        this.status = status;
-        this.code = code;
+        this.errorCode = errorCode;
     }
 
     public HttpStatus getStatus()
     {
-        return status;
+        return errorCode.getStatus();
     }
+
     public String getCode()
     {
-        return code;
+        return errorCode.name();
     }
 }

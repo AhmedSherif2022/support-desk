@@ -3,6 +3,9 @@ spring:
     url: jdbc:postgresql://localhost:5434/supportdesk
     username: supportdesk
     password: supportdesk
+  # db/seed holds local-only staff accounts; prod runs db/migration alone.
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed
 
 supportdesk:
   auth:
