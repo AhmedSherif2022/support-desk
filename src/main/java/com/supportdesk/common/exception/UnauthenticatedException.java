@@ -1,7 +1,6 @@
 package com.supportdesk.common.exception;
 
-
-import org.springframework.http.HttpStatus;
+import com.supportdesk.common.enums.ErrorCode;
 
 
 public class UnauthenticatedException extends ApiException
@@ -9,6 +8,6 @@ public class UnauthenticatedException extends ApiException
 
     public UnauthenticatedException()
     {
-        super(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Please log in to continue.");
+        super(ErrorCode.UNAUTHORIZED);
     }
 }

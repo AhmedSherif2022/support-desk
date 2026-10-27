@@ -3,7 +3,7 @@ package com.supportdesk.auth.service;
 import com.supportdesk.auth.entity.RefreshToken;
 import com.supportdesk.auth.repository.RefreshTokenRepository;
 import com.supportdesk.auth.repository.UserRepository;
-import com.supportdesk.common.exception.UnauthenticatedException;
+import com.supportdesk.auth.exception.RefreshTokenExpiredException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -38,8 +38,8 @@ class RefreshTokenServiceTest
         RefreshToken expired = tokenExpiringIn(Duration.ofMinutes(-1));
 
         assertThatThrownBy(() -> refreshTokenService.VerifyExpiration(expired))
-                .isInstanceOf(UnauthenticatedException.class)
-                .extracting(ex -> ((UnauthenticatedException) ex).getStatus())
+                .isInstanceOf(RefreshTokenExpiredException.class)
+                .extracting(ex -> ((RefreshTokenExpiredException) ex).getStatus())
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
         verify(refreshTokenRepository).delete(expired);
     }

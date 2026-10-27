@@ -1,8 +1,8 @@
 package com.supportdesk.common.exception;
+import com.supportdesk.common.enums.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -16,12 +16,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler
 {
-
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handleApiException(ApiException ex, HttpServletRequest request) {
@@ -37,26 +35,28 @@ public class GlobalExceptionHandler
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             fieldErrors.putIfAbsent(error.getField(), error.getDefaultMessage());
         }
+        ErrorCode code = ErrorCode.VALIDATION_FAILED;
         return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiError.withFields("VALIDATION_FAILED", "Some fields are not valid.",
-                        fieldErrors, request.getRequestURI()));
+                .status(code.getStatus())
+                .body(ApiError.withFields(code.name(), code.getMessage(), fieldErrors, request.getRequestURI()));
     }
 
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
-        return ResponseEntity
-                .status(HttpStatus.FORBIDDEN)
-                .body(ApiError.of("FORBIDDEN", "You do not have permission to do this.", request.getRequestURI()));
+        return error(ErrorCode.FORBIDDEN, request);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiError> handleUnreadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiError.of("MALFORMED_REQUEST", "The request body could not be read.",
-                        request.getRequestURI()));
+        return error(ErrorCode.MALFORMED_REQUEST, request);
+    }
+
+    // A unique or foreign-key constraint hit in the database, e.g. a duplicate username, email or mobile number.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataConflict(DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Data conflict on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        return error(ErrorCode.DATA_CONFLICT, request);
     }
 
 
@@ -66,13 +66,16 @@ public class GlobalExceptionHandler
         if (ex instanceof ErrorResponse errorResponse) {
             return ResponseEntity
                     .status(errorResponse.getStatusCode())
-                    .body(ApiError.of("REQUEST_ERROR", "The request could not be handled.",
+                    .body(ApiError.of(ErrorCode.REQUEST_ERROR.name(), ErrorCode.REQUEST_ERROR.getMessage(),
                             request.getRequestURI()));
         }
         log.error("Unexpected error on {}", request.getRequestURI(), ex);
+        return error(ErrorCode.INTERNAL_ERROR, request);
+    }
+
+    private static ResponseEntity<ApiError> error(ErrorCode code, HttpServletRequest request) {
         return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiError.of("INTERNAL_ERROR", "Something went wrong. Please try again.",
-                        request.getRequestURI()));
+                .status(code.getStatus())
+                .body(ApiError.of(code.name(), code.getMessage(), request.getRequestURI()));
     }
 }

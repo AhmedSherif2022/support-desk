@@ -12,5 +12,5 @@ import lombok.NoArgsConstructor;
 public class RefreshTokenRequest
 {
 
-    private String RefreshToken;
+    private String refreshToken;
 }

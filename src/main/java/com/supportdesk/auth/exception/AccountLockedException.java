@@ -1,7 +1,7 @@
 package com.supportdesk.auth.exception;
+import com.supportdesk.common.enums.ErrorCode;
 import com.supportdesk.common.exception.ApiException;
 import lombok.Getter;
-import org.springframework.http.HttpStatus;
 
 import java.time.Instant;
 
@@ -14,8 +14,8 @@ public class AccountLockedException extends ApiException
 
     public AccountLockedException(Instant lockedUntil)
     {
-        super(HttpStatus.LOCKED, "ACCOUNT_LOCKED",
-                "Your account is locked because of too many failed logins. Try again after " + lockedUntil + ".");
+        super(ErrorCode.ACCOUNT_LOCKED,
+                ErrorCode.ACCOUNT_LOCKED.getMessage() + " Try again after " + lockedUntil + ".");
         this.lockedUntil = lockedUntil;
     }
 
