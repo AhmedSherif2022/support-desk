@@ -2,6 +2,7 @@ package com.supportdesk.auth.controller;
 import com.supportdesk.auth.dto.JwtResponse;
 import com.supportdesk.auth.dto.LoginRequest;
 import com.supportdesk.auth.dto.LoginResponse;
+import com.supportdesk.auth.dto.MeResponse;
 import com.supportdesk.auth.dto.RefreshTokenRequest;
 import com.supportdesk.auth.security.AuthenticatedUser;
 import com.supportdesk.auth.service.AuthService;
@@ -44,11 +45,11 @@ public class AuthController
     }
 
 
+    // "What can I open?": the logged-in user plus the screens their role may see.
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
-    public AuthenticatedUser me(@AuthenticationPrincipal AuthenticatedUser user)
+    public MeResponse me(@AuthenticationPrincipal AuthenticatedUser user)
     {
-
-        return user;
+        return MeResponse.from(user);
     }
 }

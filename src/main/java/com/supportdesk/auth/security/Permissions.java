@@ -50,15 +50,16 @@ public final class Permissions
             "/error");
 
 
-    private static final Map<Role, Set<String>> SCREENS = new EnumMap<>(Map.of(
-            Role.AGENT,       Set.of("HOME", "CUSTOMER_SEARCH", "MY_TICKETS", "NOTIFICATIONS"),
-            Role.GUIDE_ADMIN, Set.of("GUIDE_LIBRARY", "ERROR_RULES", "TRIAGE", "AGENT_FEEDBACK",
+    // Lists, not sets: /api/auth/me returns them in this order, so the menu order stays stable.
+    private static final Map<Role, List<String>> SCREENS = new EnumMap<>(Map.of(
+            Role.AGENT,       List.of("HOME", "CUSTOMER_SEARCH", "MY_TICKETS", "NOTIFICATIONS"),
+            Role.GUIDE_ADMIN, List.of("GUIDE_LIBRARY", "ERROR_RULES", "TRIAGE", "AGENT_FEEDBACK",
                     "GUIDE_ANALYTICS", "AUDIT_LOG", "NOTIFICATIONS"),
-            Role.REVIEWER,    Set.of("REVIEW_QUEUE", "AUDIT_LOG", "NOTIFICATIONS")));
+            Role.REVIEWER,    List.of("REVIEW_QUEUE", "AUDIT_LOG", "NOTIFICATIONS")));
 
-    public static Set<String> screensFor(Role role)
+    public static List<String> screensFor(Role role)
     {
-        return SCREENS.getOrDefault(role, Set.of());
+        return SCREENS.getOrDefault(role, List.of());
     }
 
     public static boolean isAllowed(Rule rule, Role role)
