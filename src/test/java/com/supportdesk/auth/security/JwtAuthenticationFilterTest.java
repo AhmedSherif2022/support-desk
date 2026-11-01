@@ -18,6 +18,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +26,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -104,13 +106,21 @@ class JwtAuthenticationFilterTest
     {
         logout();
 
-        verify(refreshTokenService).deleteByUserId(USER_ID);
+        // the user was never saved, so its id is null: check the id logout really used
+        verify(refreshTokenService).deleteByUserId(user.getId());
     }
+
 
     private void logout()
     {
+        AuthenticatedUser badge = new AuthenticatedUser(USER_ID, user.getUsername(), user.getRole());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(badge, null, List.of()));
+
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
-        authService.logout(USER_ID);
+        authService.logout();
+
+        SecurityContextHolder.clearContext();    // don't leak this login into the rest of the test
     }
 
     private Authentication filterWith(String token) throws Exception

@@ -35,7 +35,8 @@ public class CurrentUserService
     }
 
     @Transactional(readOnly = true)
-    public User getCurrentUserEntity()
+    public User
+            getCurrentUserEntity()
     {
         return userRepository.findById(getCurrentUserId())
                 .orElseThrow(UnauthenticatedException::new);
