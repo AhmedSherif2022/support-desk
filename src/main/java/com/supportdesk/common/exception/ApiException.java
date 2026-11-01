@@ -16,7 +16,7 @@ public class ApiException extends RuntimeException
         this(errorCode, errorCode.getMessage());
     }
 
-    // For messages that carry details, e.g. when a lock ends.
+
     public ApiException(ErrorCode errorCode, String message)
     {
         super(message);
