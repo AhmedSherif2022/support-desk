@@ -1,0 +1,290 @@
+{
+  "info": {
+    "name": "Support Desk API",
+    "description": "Local Support Desk backend. Start Postgres (`docker compose up -d`) and the app, then run the whole collection with the Collection Runner: each request saves the tokens the next one needs.\n\nSeeded users (local profile, password `Password123!`): `mona` AGENT, `youssef` GUIDE_ADMIN, `nour` REVIEWER.\n\nFull reference with every field and error code: http://localhost:8080/swagger-ui.html",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "agentUsername", "value": "mona" },
+    { "key": "adminUsername", "value": "youssef" },
+    { "key": "password", "value": "Password123!" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "adminAccessToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth flow (mona, AGENT)",
+      "description": "Log in, use the token, refresh it, log out, and prove both tokens are dead afterwards.",
+      "item": [
+        {
+          "name": "Login",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Returns access and refresh tokens', () => {",
+            "  pm.expect(body.accessToken).to.be.a('string');",
+            "  pm.expect(body.refreshToken).to.be.a('string');",
+            "});",
+            "pm.collectionVariables.set('accessToken', body.accessToken);",
+            "pm.collectionVariables.set('refreshToken', body.refreshToken);"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{agentUsername}}\",\n  \"password\": \"{{password}}\"\n}" },
+            "description": "Public. Returns a short-lived access token and a refresh token."
+          }
+        },
+        {
+          "name": "Me (what can I open?)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Mona is an AGENT', () => pm.expect(body.role).to.eql('AGENT'));",
+            "pm.test('Agent screens, in menu order', () => pm.expect(body.allowedScreens).to.eql(['HOME', 'CUSTOMER_SEARCH', 'MY_TICKETS', 'NOTIFICATIONS']));"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/me",
+            "description": "The logged-in user and the screens their role may see."
+          }
+        },
+        {
+          "name": "Refresh access token",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Returns a new access token', () => pm.expect(body.accessToken).to.be.a('string'));",
+            "pm.collectionVariables.set('accessToken', body.accessToken);"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/refresh",
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" },
+            "description": "Public. Trade the refresh token for a fresh access token."
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/auth/logout",
+            "description": "Ends the session everywhere: old access tokens stop working and the refresh token is deleted."
+          }
+        },
+        {
+          "name": "Me after logout (old access token)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+            "pm.test('code UNAUTHORIZED', () => pm.expect(pm.response.json().code).to.eql('UNAUTHORIZED'));"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/me" }
+        },
+        {
+          "name": "Refresh after logout (old refresh token)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+            "pm.test('code INVALID_REFRESH_TOKEN', () => pm.expect(pm.response.json().code).to.eql('INVALID_REFRESH_TOKEN'));"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/refresh",
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Login errors",
+      "item": [
+        {
+          "name": "Wrong password",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "// One failure only; the next successful login resets the counter, so this never locks mona.",
+            "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+            "pm.test('code INVALID_CREDENTIALS', () => pm.expect(pm.response.json().code).to.eql('INVALID_CREDENTIALS'));"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{agentUsername}}\",\n  \"password\": \"wrong-password\"\n}" }
+          }
+        },
+        {
+          "name": "Missing fields",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+            "const body = pm.response.json();",
+            "pm.test('code VALIDATION_FAILED', () => pm.expect(body.code).to.eql('VALIDATION_FAILED'));",
+            "pm.test('Names both bad fields', () => pm.expect(body.fieldErrors).to.have.keys('username', 'password'));"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"\",\n  \"password\": \"\"\n}" }
+          }
+        },
+        {
+          "name": "Broken JSON",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+            "pm.test('code MALFORMED_REQUEST', () => pm.expect(pm.response.json().code).to.eql('MALFORMED_REQUEST'));"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{ not json" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Permissions (every 403 is audited)",
+      "description": "AGENT: /api/customers, /api/tickets, /api/queue. GUIDE_ADMIN: /api/admin, /api/audit. REVIEWER: /api/review, /api/audit. Allowed areas answer 404 until their endpoints are built.",
+      "item": [
+        {
+          "name": "Login as mona (AGENT)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "pm.collectionVariables.set('accessToken', pm.response.json().accessToken);"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{agentUsername}}\",\n  \"password\": \"{{password}}\"\n}" }
+          }
+        },
+        {
+          "name": "Agent opens an admin URL",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+            "pm.test('code FORBIDDEN', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+          ] } }],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/users",
+            "description": "Wrong role. Writes an ACCESS_DENIED row to audit_logs."
+          }
+        },
+        {
+          "name": "Agent opens the audit log",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/audit/logs" }
+        },
+        {
+          "name": "Agent opens a ticket (allowed)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Let through: not 401 or 403', () => pm.expect(pm.response.code).to.not.be.oneOf([401, 403]));"
+          ] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/tickets/1" }
+        },
+        {
+          "name": "Login as youssef (GUIDE_ADMIN)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "pm.collectionVariables.set('adminAccessToken', pm.response.json().accessToken);"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{password}}\"\n}" }
+          }
+        },
+        {
+          "name": "Admin screens",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('youssef is a GUIDE_ADMIN', () => pm.expect(body.role).to.eql('GUIDE_ADMIN'));",
+            "pm.test('Admin screens', () => pm.expect(body.allowedScreens).to.eql(['GUIDE_LIBRARY', 'ERROR_RULES', 'TRIAGE', 'AGENT_FEEDBACK', 'GUIDE_ANALYTICS', 'AUDIT_LOG', 'NOTIFICATIONS']));"
+          ] } }],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+        {
+          "name": "Admin opens an admin URL (allowed)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Let through: not 401 or 403', () => pm.expect(pm.response.code).to.not.be.oneOf([401, 403]));"
+          ] } }],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/users"
+          }
+        },
+        {
+          "name": "Admin opens a ticket",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+          ] } }],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/1"
+          }
+        },
+        {
+          "name": "No token",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
+            "pm.test('code UNAUTHORIZED', () => pm.expect(pm.response.json().code).to.eql('UNAUTHORIZED'));"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/1",
+            "description": "401s are not audited; only 403s are."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. API docs",
+      "item": [
+        {
+          "name": "OpenAPI spec (JSON)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "pm.test('Documents the auth endpoints', () => pm.expect(pm.response.json().paths).to.have.property('/api/auth/login'));"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/v3/api-docs",
+            "description": "Public. Open {{baseUrl}}/swagger-ui.html in a browser for the interactive version."
+          }
+        }
+      ]
+    }
+  ]
+}
