@@ -2,6 +2,7 @@ package com.supportdesk.auth.service;
 import com.supportdesk.auth.dto.JwtResponse;
 import com.supportdesk.auth.dto.LoginRequest;
 import com.supportdesk.auth.dto.LoginResponse;
+import com.supportdesk.auth.dto.MeResponse;
 import com.supportdesk.auth.entity.RefreshToken;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.exception.AccountLockedException;
@@ -67,7 +68,8 @@ public class AuthService {
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getUsername());
 
         // TODO (step 3, audit): publish LoginSucceededEvent / LoginFailedEvent / AccountLockedEvent.
-        return new LoginResponse(issued.token(), refreshToken.getToken());
+        return LoginResponse.bearer(issued.token(), issued.expiresAt(), refreshToken.getToken(),
+                MeResponse.from(AuthenticatedUser.from(user)));
     }
 
     @Transactional(noRollbackFor = ApiException.class)
