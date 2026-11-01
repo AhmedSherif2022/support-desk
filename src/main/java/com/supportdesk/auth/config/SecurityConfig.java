@@ -29,7 +29,9 @@ import java.util.List;
 
 @Configuration                                        // Spring: this class creates beans at startup
 @EnableWebSecurity                                    // Spring Security: use OUR SecurityFilterChain below
-@EnableMethodSecurity                                 // Spring Security: makes @PreAuthorize on controllers work
+// proxyTargetClass: controllers implement an API interface (AuthApi). A JDK proxy would hide
+// @RestController, so the routes would 404. Class proxies keep the controller class visible.
+@EnableMethodSecurity(proxyTargetClass = true)
 @EnableConfigurationProperties(AuthProperties.class)  // Spring Boot: create AuthProperties from application.yml
 public class SecurityConfig {
 
