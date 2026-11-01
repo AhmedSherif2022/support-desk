@@ -43,10 +43,8 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtService jwtService,
                                                    UserRepository userRepository,
-                                                   Clock clock) throws Exception {
-        // TODO (after Member 3 merges): delete this line and add "SecurityErrorWriter errorWriter"
-        //      as a parameter of this method, so Spring injects the @Component that also audits ACCESS_DENIED.
-        SecurityErrorWriter errorWriter = new SecurityErrorWriter();
+                                                   Clock clock,
+                                                   SecurityErrorWriter errorWriter) throws Exception {
 
         http
                 .csrf(AbstractHttpConfigurer::disable)        // tokens in a header, not cookies → no CSRF

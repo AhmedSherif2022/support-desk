@@ -46,7 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * No token → 401, wrong role → 403, right role → let through, for every role and every URL area.
  */
 @WebMvcTest(AuthController.class)
-@Import({SecurityConfig.class, ClockConfig.class})
+@Import({SecurityConfig.class, ClockConfig.class, SecurityErrorWriter.class})
 class PermissionMatrixTest
 {
 

@@ -44,7 +44,7 @@ public class GlobalExceptionHandler
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
-        return error(ErrorCode.FORBIDDEN, request);
+        throw ex;
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
