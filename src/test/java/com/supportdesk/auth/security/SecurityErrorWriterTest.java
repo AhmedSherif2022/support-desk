@@ -77,7 +77,7 @@ class SecurityErrorWriterTest {
     }
 
     @Test
-    void handle_usesXForwardedForWhenPresent() throws IOException {
+    void handle_ignoresSpoofedXForwardedFor() throws IOException {
         AuthenticatedUser user = new AuthenticatedUser(1L, "user1", Role.AGENT);
         var auth = new UsernamePasswordAuthenticationToken(user, null, List.of(new SimpleGrantedAuthority("ROLE_AGENT")));
         SecurityContextHolder.getContext().setAuthentication(auth);
@@ -92,7 +92,7 @@ class SecurityErrorWriterTest {
         ArgumentCaptor<AccessDeniedEvent> eventCaptor = ArgumentCaptor.forClass(AccessDeniedEvent.class);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
 
-        assertThat(eventCaptor.getValue().ipAddress()).isEqualTo("203.0.113.195");
+        assertThat(eventCaptor.getValue().ipAddress()).isEqualTo("10.0.0.1");   // the real connection, not the header
     }
 
     @Test

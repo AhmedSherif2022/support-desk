@@ -69,7 +69,9 @@ public final class SecurityErrorWriter implements AuthenticationEntryPoint, Acce
 
             String endpoint = request.getRequestURI();
             String httpMethod = request.getMethod();
-            String ipAddress = extractClientIp(request);
+            // remoteAddr, never X-Forwarded-For: any client can send that header and forge the audited IP.
+            // Behind a real proxy, set server.forward-headers-strategy so Tomcat fills remoteAddr from trusted proxies.
+            String ipAddress = request.getRemoteAddr();
             Instant timestamp = Instant.now();
 
             AccessDeniedEvent event = new AccessDeniedEvent(
@@ -85,17 +87,6 @@ public final class SecurityErrorWriter implements AuthenticationEntryPoint, Acce
         } catch (Exception e) {
             log.error("Failed to publish AccessDeniedEvent", e);
         }
-    }
-
-    private String extractClientIp(HttpServletRequest request) {
-        String xfHeader = request.getHeader("X-Forwarded-For");
-        if (xfHeader != null && !xfHeader.isBlank()) {
-            String firstIp = xfHeader.split(",")[0].trim();
-            if (!firstIp.isEmpty()) {
-                return firstIp;
-            }
-        }
-        return request.getRemoteAddr();
     }
 
     private static void write(HttpServletResponse response,

@@ -123,7 +123,7 @@ class AuditLoggingIntegrationTest {
     }
 
     @Test
-    void urlLevelForbidden_withXForwardedFor_logsForwardedIp() throws Exception {
+    void urlLevelForbidden_ignoresSpoofedXForwardedFor() throws Exception {
         String agentToken = jwtService.generateToken(agentUser).token();
 
         mockMvc.perform(get("/api/admin/some-endpoint")
@@ -134,7 +134,7 @@ class AuditLoggingIntegrationTest {
 
         List<AuditLog> logs = auditLogRepository.findAll();
         assertThat(logs).hasSize(1);
-        assertThat(logs.get(0).getIpAddress()).isEqualTo("203.0.113.50");
+        assertThat(logs.get(0).getIpAddress()).isEqualTo("127.0.0.1");   // MockMvc's real client address
     }
 
     @RestController
