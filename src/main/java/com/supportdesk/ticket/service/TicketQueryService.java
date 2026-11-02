@@ -38,7 +38,7 @@ public class TicketQueryService
     {
         QueueChip selected = chip == null ? QueueChip.ALL : chip;
         Instant now = slaService.now();
-        // TODO (E9 triage): leave out tickets waiting for Guide Admin triage once that status exists.
+        // TODO (E8 triage): leave out tickets waiting for Guide Admin triage once that status exists.
         List<QueueTicketResponse> open = tickets.findByStatusNotIn(CLOSED_STATUSES).stream()
                 .map(ticket -> toResponse(ticket, now))
                 .sorted(riskOrder())

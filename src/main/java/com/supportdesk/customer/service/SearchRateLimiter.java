@@ -39,7 +39,7 @@ public class SearchRateLimiter
                 searches.pollFirst();
             }
             if (searches.size() >= MAX_SEARCHES) {
-                // TODO (E10 notifications): tell the agent's Team Leader once the role and notifications exist.
+                // TODO (E9 notifications): tell the agent's Team Leader once the role and notifications exist.
                 log.warn("Search rate limit hit: agentId={}, searches in last {} = {}", agentId, WINDOW, searches.size());
                 throw new ApiException(ErrorCode.TOO_MANY_SEARCHES);
             }
