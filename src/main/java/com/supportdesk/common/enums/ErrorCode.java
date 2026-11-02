@@ -25,7 +25,9 @@ public enum ErrorCode
     // customers
     CUSTOMER_NOT_FOUND(HttpStatus.NOT_FOUND, "This customer does not exist."),
     CALLER_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Verify the caller before doing this."),
-    TOO_FEW_CHECKS(HttpStatus.UNPROCESSABLE_ENTITY, "At least two identity checks must pass."),
+    TOO_FEW_CHECKS(HttpStatus.UNPROCESSABLE_ENTITY, "Two checks must pass."),
+    TOO_MANY_SEARCHES(HttpStatus.TOO_MANY_REQUESTS, "Too many searches. Wait a few minutes and try again."),
+    CUSTOM_RANGE_REQUIRED(HttpStatus.BAD_REQUEST, "A custom range needs from and to, with from before to."),
 
 
     TICKET_NOT_FOUND(HttpStatus.NOT_FOUND, "This ticket does not exist."),

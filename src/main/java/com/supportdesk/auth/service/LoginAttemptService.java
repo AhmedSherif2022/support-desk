@@ -25,7 +25,7 @@ public class LoginAttemptService
 
     public void recordFailure(User user)
     {
-        user.registerFailedLogin();
+        user.registerFailedLogin(clock.instant(), properties.failureWindow());
         if (user.getFailedLoginAttempts() >= properties.maxFailedAttempts()) {
             user.lockUntil(clock.instant().plus(properties.lockDuration()));
             user.resetFailedLogins();

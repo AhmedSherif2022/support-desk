@@ -1,5 +1,6 @@
 package com.supportdesk.auth.service;
 
+import com.supportdesk.auth.config.AuthProperties;
 import com.supportdesk.auth.entity.RefreshToken;
 import com.supportdesk.auth.repository.RefreshTokenRepository;
 import com.supportdesk.auth.repository.UserRepository;
@@ -18,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RefreshTokenServiceTest
@@ -28,6 +30,9 @@ class RefreshTokenServiceTest
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private AuthProperties authProperties;
 
     @InjectMocks
     private RefreshTokenService refreshTokenService;
@@ -51,6 +56,17 @@ class RefreshTokenServiceTest
 
         assertThat(refreshTokenService.VerifyExpiration(valid)).isSameAs(valid);
         verify(refreshTokenRepository, never()).delete(valid);
+    }
+
+    @Test
+    void extendPushesTheExpiryToTheInactivityTimeout()
+    {
+        when(authProperties.inactivityTimeout()).thenReturn(Duration.ofMinutes(30));
+        RefreshToken nearlyIdle = tokenExpiringIn(Duration.ofMinutes(1));
+
+        refreshTokenService.extend(nearlyIdle);
+
+        assertThat(nearlyIdle.getExpirydate()).isAfter(Instant.now().plus(Duration.ofMinutes(29)));
     }
 
     private RefreshToken tokenExpiringIn(Duration fromNow)

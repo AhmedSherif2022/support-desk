@@ -1,4 +1,4 @@
-package com.supportdesk.customer.entity;
+package com.supportdesk.customer.enums;
 
 /** Identity checks an agent can tick during a call. At least two must pass (E2). */
 public enum VerificationCheck

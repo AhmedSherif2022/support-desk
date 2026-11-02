@@ -1,7 +1,8 @@
 package com.supportdesk.auth.security;
 
+import com.supportdesk.audit.service.AuditService;
 import com.supportdesk.auth.config.AuthProperties;
-import com.supportdesk.auth.entity.Role;
+import com.supportdesk.auth.enums.Role;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.repository.UserRepository;
 import com.supportdesk.auth.service.AuthService;
@@ -58,9 +59,11 @@ class JwtAuthenticationFilterTest
         String secret = Base64.getEncoder().encodeToString(new byte[32]);
         Clock clock = Clock.systemUTC();
         jwtService = new JwtService(
-                new AuthProperties(secret, Duration.ofMinutes(30), 5, Duration.ofMinutes(15)), clock);
+                new AuthProperties(secret, Duration.ofMinutes(30), 5, Duration.ofMinutes(15),
+                        Duration.ofMinutes(15), Duration.ofMinutes(30)), clock);
         authService = new AuthService(
-                userRepository, mock(PasswordEncoder.class), mock(LoginAttemptService.class), jwtService, refreshTokenService);
+                userRepository, mock(PasswordEncoder.class), mock(LoginAttemptService.class), jwtService, refreshTokenService,
+                mock(AuditService.class));
         filter = new JwtAuthenticationFilter(jwtService, userRepository, clock);
 
         user = new User("agent", "hash", "Agent Smith", "agent@example.com", "+201000000000", Role.AGENT);

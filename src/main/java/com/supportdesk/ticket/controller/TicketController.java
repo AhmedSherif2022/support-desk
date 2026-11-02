@@ -1,55 +1,96 @@
 package com.supportdesk.ticket.controller;
+
+import com.supportdesk.common.dto.PageResponse;
+import com.supportdesk.ticket.enums.QueueChip;
+import com.supportdesk.ticket.enums.TicketListView;
+import com.supportdesk.ticket.dto.QueueResponse;
 import com.supportdesk.ticket.dto.TicketDtos.ChangeStatusRequest;
 import com.supportdesk.ticket.dto.TicketDtos.CreateTicketRequest;
 import com.supportdesk.ticket.dto.TicketDtos.PrecheckDto;
 import com.supportdesk.ticket.dto.TicketDtos.PrecheckRequest;
 import com.supportdesk.ticket.dto.TicketDtos.TicketDto;
+import com.supportdesk.ticket.dto.TicketWorkspaceDtos.ContactDto;
+import com.supportdesk.ticket.dto.TicketWorkspaceDtos.ContactRequest;
+import com.supportdesk.ticket.dto.TicketWorkspaceDtos.ContactsResponse;
+import com.supportdesk.ticket.dto.TicketWorkspaceDtos.HistoryResponse;
+import com.supportdesk.ticket.dto.TicketWorkspaceDtos.TicketListRow;
+import com.supportdesk.ticket.service.TicketListService;
+import com.supportdesk.ticket.service.TicketQueryService;
 import com.supportdesk.ticket.service.TicketService;
-import jakarta.validation.Valid;
+import com.supportdesk.ticket.service.TicketWorkspaceService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+
 @RestController
-@RequestMapping("/api/tickets")
 @PreAuthorize("hasRole('AGENT')")
 @RequiredArgsConstructor
-public class TicketController
+public class TicketController implements TicketApi
 {
     private final TicketService ticketService;
+    private final TicketQueryService ticketQueryService;
+    private final TicketListService ticketListService;
+    private final TicketWorkspaceService workspaceService;
 
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public TicketDto create(@Valid @RequestBody CreateTicketRequest request)
+    @Override
+    public TicketDto create(CreateTicketRequest request)
     {
         return ticketService.create(request);
     }
 
-    @PostMapping("/precheck")
-    public PrecheckDto precheck(@Valid @RequestBody PrecheckRequest request)
+    @Override
+    public PrecheckDto precheck(PrecheckRequest request)
     {
         return ticketService.precheck(request);
     }
 
-    @GetMapping("/{number}")
-    public TicketDto get(@PathVariable Long number)
+    @Override
+    public QueueResponse queue(QueueChip chip)
+    {
+        return ticketQueryService.queue(chip);
+    }
+
+    @Override
+    public PageResponse<TicketListRow> list(TicketListView view, String q, Pageable pageable)
+    {
+        return ticketListService.list(view, q, pageable);
+    }
+
+    @Override
+    public TicketDto get(Long number)
     {
         return ticketService.get(number);
     }
 
-    @PatchMapping("/{number}/status")
-    public TicketDto changeStatus(@PathVariable Long number,
-                                  @Valid @RequestBody ChangeStatusRequest request)
+    @Override
+    public TicketDto changeStatus(Long number, ChangeStatusRequest request)
     {
         return ticketService.changeStatus(number, request);
+    }
+
+    @Override
+    public ContactDto addContact(Long number, ContactRequest request)
+    {
+        return workspaceService.addContact(number, request.note());
+    }
+
+    @Override
+    public ContactsResponse contacts(Long number)
+    {
+        return workspaceService.contacts(number);
+    }
+
+    @Override
+    public HistoryResponse timeline(Long number)
+    {
+        return workspaceService.timeline(number);
+    }
+
+    @Override
+    public HistoryResponse audit(Long number)
+    {
+        return workspaceService.audit(number);
     }
 }

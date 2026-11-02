@@ -1,5 +1,5 @@
 package com.supportdesk.auth.security;
-import com.supportdesk.auth.entity.Role;
+import com.supportdesk.auth.enums.Role;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;

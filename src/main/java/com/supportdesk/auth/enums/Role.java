@@ -1,4 +1,4 @@
-package com.supportdesk.auth.entity;
+package com.supportdesk.auth.enums;
 
 
 

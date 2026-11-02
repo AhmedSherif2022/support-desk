@@ -5,8 +5,8 @@ import com.supportdesk.auth.service.CurrentUserService;
 import com.supportdesk.common.exception.BusinessRuleException;
 import com.supportdesk.customer.entity.CallerVerification;
 import com.supportdesk.customer.entity.Customer;
-import com.supportdesk.customer.entity.Segment;
-import com.supportdesk.customer.entity.VerificationCheck;
+import com.supportdesk.customer.enums.Segment;
+import com.supportdesk.customer.enums.VerificationCheck;
 import com.supportdesk.customer.exception.CallerNotVerifiedException;
 import com.supportdesk.customer.repository.CallerVerificationRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +38,8 @@ class CallerVerificationServiceTest
     private final CustomerLookupService customerLookup = mock(CustomerLookupService.class);
     private final CurrentUserService currentUserService = mock(CurrentUserService.class);
     private final CallerVerificationService service = new CallerVerificationService(
-            repository, customerLookup, currentUserService, Clock.fixed(NOW, ZoneOffset.UTC));
+            repository, customerLookup, currentUserService, Clock.fixed(NOW, ZoneOffset.UTC),
+            org.mockito.Mockito.mock(com.supportdesk.audit.service.AuditService.class));
 
     private final Customer sara = new Customer("CIF-100245", "Sara Mahmoud", "29001011234567",
             "+201001234567", LocalDate.of(1990, 1, 1), Segment.PREMIUM, "AR");
@@ -70,7 +71,7 @@ class CallerVerificationServiceTest
     {
         assertThatThrownBy(() -> service.verify("CIF-100245", Set.of(VerificationCheck.DATE_OF_BIRTH)))
                 .isInstanceOf(BusinessRuleException.class)
-                .hasMessage("At least two identity checks must pass.");
+                .hasMessage("Two checks must pass.");   // E2-S2 wording
         verify(repository, never()).save(any());
     }
 

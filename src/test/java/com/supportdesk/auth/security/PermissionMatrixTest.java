@@ -2,7 +2,7 @@ package com.supportdesk.auth.security;
 
 import com.supportdesk.auth.config.SecurityConfig;
 import com.supportdesk.auth.controller.AuthController;
-import com.supportdesk.auth.entity.Role;
+import com.supportdesk.auth.enums.Role;
 import com.supportdesk.auth.repository.UserRepository;
 import com.supportdesk.auth.service.AuthService;
 import com.supportdesk.auth.service.JwtService;
@@ -29,9 +29,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.supportdesk.auth.entity.Role.AGENT;
-import static com.supportdesk.auth.entity.Role.GUIDE_ADMIN;
-import static com.supportdesk.auth.entity.Role.REVIEWER;
+import static com.supportdesk.auth.enums.Role.AGENT;
+import static com.supportdesk.auth.enums.Role.GUIDE_ADMIN;
+import static com.supportdesk.auth.enums.Role.REVIEWER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.mockito.Mockito.verify;

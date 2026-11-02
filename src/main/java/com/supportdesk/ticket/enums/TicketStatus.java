@@ -1,4 +1,5 @@
-package com.supportdesk.ticket.entity;
+package com.supportdesk.ticket.enums;
+import com.supportdesk.ticket.entity.Ticket;
 
 /**
  * Where a ticket is in its life. TicketStatusMachine decides which moves are allowed.

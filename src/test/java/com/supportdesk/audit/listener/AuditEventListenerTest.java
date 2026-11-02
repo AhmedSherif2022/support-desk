@@ -1,6 +1,6 @@
 package com.supportdesk.audit.listener;
 
-import com.supportdesk.audit.entity.AuditAction;
+import com.supportdesk.audit.enums.AuditAction;
 import com.supportdesk.audit.entity.AuditLog;
 import com.supportdesk.audit.event.AccessDeniedEvent;
 import com.supportdesk.audit.repository.AuditLogRepository;
@@ -34,6 +34,7 @@ class AuditEventListenerTest {
         AccessDeniedEvent event = new AccessDeniedEvent(
                 123L,
                 "john_doe",
+                null,
                 "/api/admin/users",
                 "GET",
                 "192.168.1.100",
@@ -59,6 +60,7 @@ class AuditEventListenerTest {
     void onAccessDenied_anonymousUser() {
         Instant now = Instant.now();
         AccessDeniedEvent event = new AccessDeniedEvent(
+                null,
                 null,
                 null,
                 "/api/secure/endpoint",
@@ -87,6 +89,7 @@ class AuditEventListenerTest {
         AccessDeniedEvent event = new AccessDeniedEvent(
                 1L,
                 "user",
+                null,
                 "/test",
                 "GET",
                 "127.0.0.1",
@@ -109,6 +112,7 @@ class AuditEventListenerTest {
         AccessDeniedEvent event = new AccessDeniedEvent(
                 999L,
                 longUsername,
+                null,
                 longEndpoint,
                 longMethod,
                 longIp,
@@ -130,6 +134,7 @@ class AuditEventListenerTest {
     @Test
     void onAccessDenied_nullFieldsHandledSafely() {
         AccessDeniedEvent event = new AccessDeniedEvent(
+                null,
                 null,
                 null,
                 null,

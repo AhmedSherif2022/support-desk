@@ -1,5 +1,5 @@
 package com.supportdesk.auth.service;
-import com.supportdesk.auth.entity.Role;
+import com.supportdesk.auth.enums.Role;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.repository.UserRepository;
 import com.supportdesk.auth.security.AuthenticatedUser;

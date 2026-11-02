@@ -1,6 +1,6 @@
 package com.supportdesk.ticket.service;
 
-import com.supportdesk.ticket.entity.TicketStatus;
+import com.supportdesk.ticket.enums.TicketStatus;
 import com.supportdesk.ticket.exception.InvalidStatusTransitionException;
 import org.junit.jupiter.api.Test;
 

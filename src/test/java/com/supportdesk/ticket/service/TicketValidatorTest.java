@@ -2,7 +2,7 @@ package com.supportdesk.ticket.service;
 
 import com.supportdesk.common.exception.BusinessRuleException;
 import com.supportdesk.ticket.entity.TicketCategory;
-import com.supportdesk.ticket.entity.TicketPriority;
+import com.supportdesk.ticket.enums.TicketPriority;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

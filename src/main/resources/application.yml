@@ -14,15 +14,29 @@ spring:
     enabled: true
     default-schema: public
     schemas: public
+  data:
+    web:
+      pageable:
+        max-page-size: 100            # e.g. GET /api/audit/logs?size=...
 
 supportdesk:
   auth:
     jwt-secret: ${JWT_SECRET}
-    session-timeout: 5m
+    session-timeout: 15m              # access token (JWT) lifetime
     max-failed-attempts: 5
     lock-duration: 15m
+    failure-window: 15m               # max-failed-attempts must happen within this to lock
+    inactivity-timeout: 30m           # no refresh for this long ends the session (refresh token expires)
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+  tickets:
+    sla:
+      warning-at-percent: 75          # at or above this, and still under the target, the ticket is AT_RISK
+      targets:
+        CRITICAL: 2h
+        HIGH: 8h
+        MEDIUM: 24h
+        LOW: 72h
 
 springdoc:
   swagger-ui:

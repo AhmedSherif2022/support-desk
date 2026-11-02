@@ -1,4 +1,8 @@
 package com.supportdesk.customer.service;
+
+import com.supportdesk.audit.enums.AuditAction;
+import com.supportdesk.audit.service.AuditService;
+import java.util.Map;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.service.CurrentUserService;
 import com.supportdesk.common.enums.ErrorCode;
@@ -6,7 +10,7 @@ import com.supportdesk.common.exception.BusinessRuleException;
 import com.supportdesk.customer.dto.CustomerDtos.VerificationStatusDto;
 import com.supportdesk.customer.entity.CallerVerification;
 import com.supportdesk.customer.entity.Customer;
-import com.supportdesk.customer.entity.VerificationCheck;
+import com.supportdesk.customer.enums.VerificationCheck;
 import com.supportdesk.customer.exception.CallerNotVerifiedException;
 import com.supportdesk.customer.repository.CallerVerificationRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +34,7 @@ public class CallerVerificationService
     private final CustomerLookupService customerLookup;
     private final CurrentUserService currentUserService;
     private final Clock clock;
+    private final AuditService auditService;
 
 
     @Transactional
@@ -45,8 +50,21 @@ public class CallerVerificationService
         endActive(agent.getId(), customer, now);                       // only one active per agent + customer
         CallerVerification verification = verificationRepository.save(
                 new CallerVerification(customer, agent, passedChecks, now, now.plus(VALID_FOR)));
+        auditService.recordForCurrentUser(AuditAction.CALLER_VERIFIED, "CUSTOMER", customer.getCif(), null,
+                Map.of("checks", passedChecks));
 
         return toDto(customer, verification);
+    }
+
+
+    /** E2-S2 "Caller failed": nothing stays unlocked, and the failure is audited. */
+    @Transactional
+    public void recordFailed(String cif)
+    {
+        Customer customer = customerLookup.getByCif(cif);
+        endActive(currentUserService.getCurrentUserId(), customer, clock.instant());
+        auditService.recordForCurrentUser(AuditAction.CALLER_VERIFICATION_FAILED, "CUSTOMER", customer.getCif(),
+                null, null);
     }
 
 

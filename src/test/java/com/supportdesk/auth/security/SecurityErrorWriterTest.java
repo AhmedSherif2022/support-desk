@@ -1,7 +1,7 @@
 package com.supportdesk.auth.security;
 
 import com.supportdesk.audit.event.AccessDeniedEvent;
-import com.supportdesk.auth.entity.Role;
+import com.supportdesk.auth.enums.Role;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

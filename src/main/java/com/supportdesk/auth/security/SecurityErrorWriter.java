@@ -1,6 +1,7 @@
 package com.supportdesk.auth.security;
 
 import com.supportdesk.audit.event.AccessDeniedEvent;
+import com.supportdesk.auth.enums.Role;
 import com.supportdesk.common.enums.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -51,6 +52,7 @@ public final class SecurityErrorWriter implements AuthenticationEntryPoint, Acce
         try {
             Long userId = null;
             String username = null;
+            Role role = null;
 
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication != null && authentication.isAuthenticated()) {
@@ -58,6 +60,7 @@ public final class SecurityErrorWriter implements AuthenticationEntryPoint, Acce
                 if (principal instanceof AuthenticatedUser authUser) {
                     userId = authUser.id();
                     username = authUser.username();
+                    role = authUser.role();
                 } else if (principal instanceof org.springframework.security.core.userdetails.UserDetails userDetails) {
                     username = userDetails.getUsername();
                 } else if (principal instanceof String principalStr && !"anonymousUser".equals(principalStr)) {
@@ -77,6 +80,7 @@ public final class SecurityErrorWriter implements AuthenticationEntryPoint, Acce
             AccessDeniedEvent event = new AccessDeniedEvent(
                     userId,
                     username,
+                    role,
                     endpoint,
                     httpMethod,
                     ipAddress,
