@@ -55,9 +55,9 @@
                     focus:border-brand focus:ring-4 focus:ring-brand/15"
              [class.border-line-2]="!invalid('password') && error() !== 'invalid'"
              [class.border-danger]="invalid('password') || error() === 'invalid'"
-             [class.!border-danger]="invalid('username') || error() === 'invalid'"
-             [class.!ring-4]="invalid('username') || error() === 'invalid'"
-             [class.!ring-danger/20]="invalid('username') || error() === 'invalid'"
+             [class.!border-danger]="invalid('password') || error() === 'invalid'"
+             [class.!ring-4]="invalid('password') || error() === 'invalid'"
+             [class.!ring-danger/20]="invalid('password') || error() === 'invalid'"
              [attr.aria-invalid]="invalid('password')" aria-describedby="password-err" />
 
       <button type="button" (click)="showPassword.set(!showPassword())"
@@ -84,4 +84,4 @@
       Sign in <i class="pi pi-arrow-right"></i>
     }
   </button>
-</form>
+</form>

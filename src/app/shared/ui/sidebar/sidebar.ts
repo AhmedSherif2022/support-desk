@@ -47,7 +47,7 @@ const TABLET_QUERY = '(max-width: 1179px)';
   styleUrl: './sidebar.css',
   host: { '[class.compact]': 'compact()' },
   template: `
-    <nav class="rail" [attr.aria-label]="title()">
+    <nav class="rail fixed" [attr.aria-label]="title()">
       <header class="brand">
         <span class="logo" aria-hidden="true"><i [class]="brandIcon()"></i></span>
         @if (!compact()) {
