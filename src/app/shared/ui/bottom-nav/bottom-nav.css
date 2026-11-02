@@ -13,6 +13,8 @@
   padding: 8px 12px;
   box-sizing: border-box;
   border-radius: 28px;
+  /* Clips the active tab's concave curves, so they can't poke out of the rounded bar when the first or last tab is active. */
+  overflow: hidden;
   background: var(--ds-color-brand);
   box-shadow: var(--ds-shadow-3);
   font-family: var(--ds-font-sans);
@@ -78,6 +80,11 @@
     var(--ds-color-brand) calc(var(--ds-rail-curve) - 0.5px),
     var(--ds-page) var(--ds-rail-curve)
   );
+}
+/* First/last tab: there's no room outside it for a curve (the bar padding is smaller), so skip that side. */
+.tab.active:first-child::before,
+.tab.active:last-child::after {
+  display: none;
 }
 .tab.active:focus-visible {
   outline-color: var(--ds-color-focus);
