@@ -1,6 +1,6 @@
 package com.supportdesk.audit.listener;
 
-import com.supportdesk.audit.entity.AuditAction;
+import com.supportdesk.audit.enums.AuditAction;
 import com.supportdesk.audit.entity.AuditLog;
 import com.supportdesk.audit.event.AccessDeniedEvent;
 import com.supportdesk.audit.repository.AuditLogRepository;
@@ -30,6 +30,7 @@ public class AuditEventListener {
             AuditLog auditLog = AuditLog.builder()
                     .userId(event.userId())
                     .username(username)
+                    .role(event.role())
                     .action(AuditAction.ACCESS_DENIED)
                     .endpoint(endpoint != null ? endpoint : "UNKNOWN")
                     .httpMethod(httpMethod != null ? httpMethod : "UNKNOWN")

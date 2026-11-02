@@ -1,5 +1,5 @@
 package com.supportdesk.ticket.event;
-import com.supportdesk.ticket.entity.TicketStatus;
+import com.supportdesk.ticket.enums.TicketStatus;
 public final class TicketEvents
 {
     private TicketEvents()

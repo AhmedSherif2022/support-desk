@@ -1,9 +1,9 @@
-package com.supportdesk.audit;
+package com.supportdesk.audit.controller;
 
-import com.supportdesk.audit.entity.AuditAction;
+import com.supportdesk.audit.enums.AuditAction;
 import com.supportdesk.audit.entity.AuditLog;
 import com.supportdesk.audit.repository.AuditLogRepository;
-import com.supportdesk.auth.entity.Role;
+import com.supportdesk.auth.enums.Role;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.repository.UserRepository;
 import com.supportdesk.auth.service.JwtService;
@@ -41,12 +41,15 @@ class AuditLoggingIntegrationTest {
     @Autowired
     private JwtService jwtService;
 
+    private long baseline;
+
     private User agentUser;
     private User adminUser;
 
     @BeforeEach
     void setUp() {
-        auditLogRepository.deleteAll();
+        // The trail is append-only now, so count only the rows each test adds instead of emptying the table.
+        baseline = auditLogRepository.findAll().stream().mapToLong(AuditLog::getId).max().orElse(0);
 
         agentUser = userRepository.findByUsernameIgnoreCase("test_agent").orElseGet(() -> {
             User u = new User("test_agent", "$2a$10$dummyhash", "Test Agent", "agent@test.com", "+1000000001", Role.AGENT);
@@ -68,7 +71,7 @@ class AuditLoggingIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
 
-        List<AuditLog> logs = auditLogRepository.findAll();
+        List<AuditLog> logs = newLogs();
         assertThat(logs).hasSize(1);
 
         AuditLog log = logs.get(0);
@@ -89,7 +92,7 @@ class AuditLoggingIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + agentToken))
                 .andExpect(status().isOk());
 
-        List<AuditLog> logs = auditLogRepository.findAll();
+        List<AuditLog> logs = newLogs();
         assertThat(logs).isEmpty();
     }
 
@@ -99,7 +102,7 @@ class AuditLoggingIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
 
-        List<AuditLog> logs = auditLogRepository.findAll();
+        List<AuditLog> logs = newLogs();
         assertThat(logs).isEmpty();
     }
 
@@ -112,7 +115,7 @@ class AuditLoggingIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
 
-        List<AuditLog> logs = auditLogRepository.findAll();
+        List<AuditLog> logs = newLogs();
         assertThat(logs).hasSize(1);
 
         AuditLog log = logs.get(0);
@@ -132,9 +135,13 @@ class AuditLoggingIntegrationTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
 
-        List<AuditLog> logs = auditLogRepository.findAll();
+        List<AuditLog> logs = newLogs();
         assertThat(logs).hasSize(1);
         assertThat(logs.get(0).getIpAddress()).isEqualTo("127.0.0.1");   // MockMvc's real client address
+    }
+
+    private List<AuditLog> newLogs() {
+        return auditLogRepository.findAll().stream().filter(log -> log.getId() > baseline).toList();
     }
 
     @RestController

@@ -1,4 +1,5 @@
 package com.supportdesk.customer.entity;
+import com.supportdesk.customer.enums.VerificationCheck;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.common.entity.BaseEntity;
 import jakarta.persistence.CollectionTable;

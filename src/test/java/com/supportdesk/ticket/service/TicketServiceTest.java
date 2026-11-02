@@ -3,17 +3,19 @@ package com.supportdesk.ticket.service;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.service.CurrentUserService;
 import com.supportdesk.customer.entity.Customer;
-import com.supportdesk.customer.entity.Platform;
+import com.supportdesk.customer.enums.Platform;
 import com.supportdesk.customer.service.CallerVerificationService;
 import com.supportdesk.customer.service.CustomerLookupService;
+import com.supportdesk.ticket.config.TicketProperties;
 import com.supportdesk.ticket.dto.TicketDtos.ChangeStatusRequest;
 import com.supportdesk.ticket.dto.TicketDtos.CreateTicketRequest;
 import com.supportdesk.ticket.dto.TicketDtos.TicketDto;
+import com.supportdesk.ticket.enums.SlaState;
 import com.supportdesk.ticket.entity.Ticket;
 import com.supportdesk.ticket.entity.TicketCategory;
-import com.supportdesk.ticket.entity.TicketOrigin;
-import com.supportdesk.ticket.entity.TicketPriority;
-import com.supportdesk.ticket.entity.TicketStatus;
+import com.supportdesk.ticket.enums.TicketOrigin;
+import com.supportdesk.ticket.enums.TicketPriority;
+import com.supportdesk.ticket.enums.TicketStatus;
 import com.supportdesk.ticket.event.TicketEvents.TicketCreatedEvent;
 import com.supportdesk.ticket.event.TicketEvents.TicketStatusChangedEvent;
 import com.supportdesk.ticket.event.TicketEvents.TicketTransitionRejectedEvent;
@@ -31,6 +33,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,16 +51,23 @@ class TicketServiceTest
 {
     private static final Instant NOW = Instant.parse("2026-11-01T10:00:00Z");
 
+    private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
     private final TicketRepository ticketRepository = mock(TicketRepository.class);
     private final TicketCategoryRepository categoryRepository = mock(TicketCategoryRepository.class);
     private final CustomerLookupService customerLookup = mock(CustomerLookupService.class);
     private final CallerVerificationService verificationService = mock(CallerVerificationService.class);
     private final CurrentUserService currentUserService = mock(CurrentUserService.class);
     private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
+    private final SlaService slaService = new SlaService(new TicketProperties(new TicketProperties.Sla(80, Map.of(
+            TicketPriority.CRITICAL, Duration.ofHours(2),
+            TicketPriority.HIGH, Duration.ofHours(8),
+            TicketPriority.MEDIUM, Duration.ofHours(24),
+            TicketPriority.LOW, Duration.ofHours(72)))), clock);
 
     private final TicketService service = new TicketService(ticketRepository, categoryRepository,
             new TicketValidator(), new TicketStatusMachine(), customerLookup, verificationService,
-            currentUserService, events, Clock.fixed(NOW, ZoneOffset.UTC));
+            currentUserService, slaService, events, clock,
+            mock(com.supportdesk.customer.repository.CustomerActivityRepository.class));
 
     private final Customer sara = mock(Customer.class);
     private final User mona = mock(User.class);
@@ -106,6 +116,7 @@ class TicketServiceTest
         assertThat(dto.title()).isEqualTo("OTP not received");                // category name
         assertThat(dto.errorCode()).isEqualTo("ERR_OTP_TIMEOUT");             // category default code
         assertThat(dto.slaDueAt()).isEqualTo(NOW.plus(Duration.ofHours(8)));  // HIGH = 8h
+        assertThat(dto.slaState()).isEqualTo(SlaState.ON_TRACK);
         verify(verificationService).requireVerified(sara);
         verify(ticketRepository).save(any(Ticket.class));
         verify(events).publishEvent(any(TicketCreatedEvent.class));
@@ -131,6 +142,7 @@ class TicketServiceTest
         TicketDto dto = service.changeStatus(2001L, new ChangeStatusRequest(TicketStatus.RESOLVED, "fixed"));
 
         assertThat(dto.status()).isEqualTo(TicketStatus.RESOLVED);
+        assertThat(dto.slaState()).isEqualTo(SlaState.MET);
         verify(events).publishEvent(any(TicketStatusChangedEvent.class));
     }
 

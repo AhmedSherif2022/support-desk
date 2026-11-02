@@ -1,4 +1,6 @@
 package com.supportdesk.customer.entity;
+import com.supportdesk.customer.enums.EnrollmentStatus;
+import com.supportdesk.customer.enums.Segment;
 import com.supportdesk.common.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,6 +43,10 @@ public class Customer extends BaseEntity
 
     @Column(nullable = false, length = 2)
     private String preferredLanguage;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private EnrollmentStatus enrollmentStatus = EnrollmentStatus.ENROLLED;
 
     public Customer(String cif, String fullName, String nationalId, String mobile,
                     LocalDate dateOfBirth, Segment segment, String preferredLanguage)

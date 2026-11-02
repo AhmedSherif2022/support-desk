@@ -1,4 +1,5 @@
 package com.supportdesk.auth.entity;
+import com.supportdesk.auth.enums.Role;
 import com.supportdesk.common.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,6 +11,7 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import org.hibernate.annotations.ColumnDefault;
 
+import java.time.Duration;
 import java.time.Instant;
 
 
@@ -63,6 +65,8 @@ public class User extends BaseEntity {
 
     private Instant lastLoginAt;
 
+    private Instant firstFailedLoginAt;   // start of the current failure window
+
 
     @Column(nullable = false)
     private int tokenVersion = 0;
@@ -90,8 +94,12 @@ public class User extends BaseEntity {
     }
 
 
-    public void registerFailedLogin()
+    public void registerFailedLogin(Instant now, Duration window)
     {
+        if (firstFailedLoginAt == null || !now.isBefore(firstFailedLoginAt.plus(window))) {
+            this.failedLoginAttempts = 0;       // earlier failures fell out of the window
+            this.firstFailedLoginAt = now;
+        }
         this.failedLoginAttempts++;
     }
 
@@ -99,6 +107,7 @@ public class User extends BaseEntity {
     public void resetFailedLogins()
     {
         this.failedLoginAttempts = 0;
+        this.firstFailedLoginAt = null;
     }
 
 

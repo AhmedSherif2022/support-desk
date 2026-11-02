@@ -1,6 +1,8 @@
 package com.supportdesk.auth.service;
 import com.supportdesk.auth.dto.JwtResponse;
 import com.supportdesk.auth.dto.LoginRequest;
+import com.supportdesk.audit.enums.AuditAction;
+import com.supportdesk.audit.service.AuditService;
 import com.supportdesk.auth.dto.LoginResponse;
 import com.supportdesk.auth.entity.RefreshToken;
 import com.supportdesk.auth.entity.User;
@@ -18,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -32,6 +35,7 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final AuditService auditService;
 
 
 
@@ -57,6 +61,9 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             loginAttemptService.recordFailure(user);
             if (loginAttemptService.isLocked(user)) {
+                // committed with the lock: noRollbackFor keeps both when we throw
+                auditService.record(AuditAction.USER_LOCKED, AuthenticatedUser.from(user), "USER",
+                        String.valueOf(user.getId()), null, Map.of("lockedUntil", user.getLockedUntil()));
                 throw new AccountLockedException(user.getLockedUntil());
             }
             throw new InvalidCredentialsException();
@@ -66,7 +73,8 @@ public class AuthService {
         JwtService.IssuedToken issued = jwtService.generateToken(user);
         RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getUsername());
 
-        // TODO (step 3, audit): publish LoginSucceededEvent / LoginFailedEvent / AccountLockedEvent.
+        auditService.record(AuditAction.USER_LOGIN, AuthenticatedUser.from(user), "USER",
+                String.valueOf(user.getId()), null, null);
         return new LoginResponse(issued.token(), refreshToken.getToken());
     }
 
@@ -75,6 +83,7 @@ public class AuthService {
     {
         return refreshTokenService.findByToken(refreshToken)
                 .map(refreshTokenService::VerifyExpiration)
+                .map(refreshTokenService::extend)
                 .map(RefreshToken::getUser)
                 .map(user -> JwtResponse.builder()
                         .accessToken(jwtService.generateToken(user).token())

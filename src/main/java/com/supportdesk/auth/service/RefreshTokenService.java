@@ -1,5 +1,6 @@
 package com.supportdesk.auth.service;
 
+import com.supportdesk.auth.config.AuthProperties;
 import com.supportdesk.auth.entity.RefreshToken;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.repository.RefreshTokenRepository;
@@ -21,6 +22,7 @@ public class RefreshTokenService
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
+    private final AuthProperties authProperties;
 
     @Transactional
     public RefreshToken createRefreshToken(String username)
@@ -32,7 +34,7 @@ public class RefreshTokenService
                 .orElseGet(() -> RefreshToken.builder().user(user).build());
 
         refreshToken.setToken(UUID.randomUUID().toString());
-        refreshToken.setExpirydate(Instant.now().plusMillis(60 * 60 * 1000));
+        refreshToken.setExpirydate(Instant.now().plus(authProperties.inactivityTimeout()));
         return refreshTokenRepository.save(refreshToken);
     }
 
@@ -53,6 +55,15 @@ public class RefreshTokenService
             refreshTokenRepository.delete(token);
             throw new RefreshTokenExpiredException();
         }
+        return token;
+    }
+
+    // Sliding expiry: each refresh pushes the end out, so only inactivity ends the session (E1-S1).
+    // shortcut: activity is seen only at refresh time, so idle time can be off by up to one access-token
+    // lifetime; track per-request activity if the 30 minutes must be exact.
+    public RefreshToken extend(RefreshToken token)
+    {
+        token.setExpirydate(Instant.now().plus(authProperties.inactivityTimeout()));
         return token;
     }
 

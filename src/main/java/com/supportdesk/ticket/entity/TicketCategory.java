@@ -1,4 +1,5 @@
 package com.supportdesk.ticket.entity;
+import com.supportdesk.ticket.enums.TicketPriority;
 import com.supportdesk.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;

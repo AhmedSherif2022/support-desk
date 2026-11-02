@@ -17,7 +17,9 @@ public record AuthProperties
         @NotBlank String jwtSecret,          // must not be empty
         @NotNull Duration sessionTimeout,    // must be present, e.g. 30m
         @Min(1) int maxFailedAttempts,       // at least 1, e.g. 5
-        @NotNull Duration lockDuration       // must be present, e.g. 15m
+        @NotNull Duration lockDuration,      // must be present, e.g. 15m
+        @NotNull Duration failureWindow,     // failures only count within this, e.g. 15m
+        @NotNull Duration inactivityTimeout  // refresh token lifetime, pushed out on every refresh, e.g. 30m
         )
 {
 }

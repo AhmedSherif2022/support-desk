@@ -1,5 +1,5 @@
 package com.supportdesk.auth.dto;
-import com.supportdesk.auth.entity.Role;
+import com.supportdesk.auth.enums.Role;
 import com.supportdesk.auth.security.AuthenticatedUser;
 import com.supportdesk.auth.security.Permissions;
 import io.swagger.v3.oas.annotations.media.Schema;

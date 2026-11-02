@@ -1,7 +1,7 @@
 package com.supportdesk.ticket.exception;
 import com.supportdesk.common.enums.ErrorCode;
 import com.supportdesk.common.exception.BusinessRuleException;
-import com.supportdesk.ticket.entity.TicketStatus;
+import com.supportdesk.ticket.enums.TicketStatus;
 
 
 public class StatusSetBySystemException extends BusinessRuleException

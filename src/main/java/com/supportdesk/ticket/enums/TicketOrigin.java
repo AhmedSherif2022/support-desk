@@ -1,4 +1,4 @@
-package com.supportdesk.ticket.entity;
+package com.supportdesk.ticket.enums;
 
 
 public enum TicketOrigin

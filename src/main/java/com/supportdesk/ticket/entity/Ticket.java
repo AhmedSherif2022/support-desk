@@ -1,8 +1,12 @@
 package com.supportdesk.ticket.entity;
+import com.supportdesk.ticket.enums.SlaState;
+import com.supportdesk.ticket.enums.TicketOrigin;
+import com.supportdesk.ticket.enums.TicketPriority;
+import com.supportdesk.ticket.enums.TicketStatus;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.common.entity.BaseEntity;
 import com.supportdesk.customer.entity.Customer;
-import com.supportdesk.customer.entity.Platform;
+import com.supportdesk.customer.enums.Platform;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -120,16 +124,12 @@ public class Ticket extends BaseEntity {
 
 
     public void moveTo(TicketStatus newStatus, Instant now) {
-        TicketStatus old = this.status;
-
-
-        if (old == TicketStatus.WAITING_ON_CUSTOMER && slaPausedAt != null) {
-            slaDueAt = slaDueAt.plus(Duration.between(slaPausedAt, now));
-            slaPausedAt = null;
+        if (slaPausedAt != null && newStatus != TicketStatus.WAITING_ON_CUSTOMER) {
+            resumeSla(now);
         }
         // Entering "waiting on customer": stop the clock.
         if (newStatus == TicketStatus.WAITING_ON_CUSTOMER) {
-            slaPausedAt = now;
+            pauseSla(now);
         }
         if (newStatus == TicketStatus.RESOLVED) {
             resolvedAt = now;
@@ -144,6 +144,23 @@ public class Ticket extends BaseEntity {
         this.status = newStatus;
     }
 
+    public void pauseSla(Instant now)
+    {
+        if (this.slaPausedAt == null && isOpen()) {
+            this.slaPausedAt = now;
+        }
+    }
+
+    public void resumeSla(Instant now)
+    {
+        if (this.slaPausedAt != null) {
+            Duration paused = Duration.between(this.slaPausedAt, now);
+            if (!paused.isNegative()) {
+                this.slaDueAt = this.slaDueAt.plus(paused);
+            }
+            this.slaPausedAt = null;
+        }
+    }
 
     public boolean updateSlaState(SlaState newState)
     {

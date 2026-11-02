@@ -2,7 +2,10 @@ package com.supportdesk.ticket.service;
 
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.service.CurrentUserService;
+import com.supportdesk.customer.enums.ActivityResult;
 import com.supportdesk.customer.entity.Customer;
+import com.supportdesk.customer.entity.CustomerActivity;
+import com.supportdesk.customer.repository.CustomerActivityRepository;
 import com.supportdesk.customer.service.CallerVerificationService;
 import com.supportdesk.customer.service.CustomerLookupService;
 import com.supportdesk.ticket.dto.TicketDtos.ChangeStatusRequest;
@@ -13,9 +16,9 @@ import com.supportdesk.ticket.dto.TicketDtos.TicketDto;
 import com.supportdesk.ticket.dto.TicketMapper;
 import com.supportdesk.ticket.entity.Ticket;
 import com.supportdesk.ticket.entity.TicketCategory;
-import com.supportdesk.ticket.entity.TicketOrigin;
-import com.supportdesk.ticket.entity.TicketPriority;
-import com.supportdesk.ticket.entity.TicketStatus;
+import com.supportdesk.ticket.enums.TicketOrigin;
+import com.supportdesk.ticket.enums.TicketPriority;
+import com.supportdesk.ticket.enums.TicketStatus;
 import com.supportdesk.ticket.event.TicketEvents.TicketCreatedEvent;
 import com.supportdesk.ticket.event.TicketEvents.TicketStatusChangedEvent;
 import com.supportdesk.ticket.event.TicketEvents.TicketTransitionRejectedEvent;
@@ -32,13 +35,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 
 
@@ -49,13 +49,6 @@ public class TicketService
 
     private static final List<TicketStatus> CLOSED_STATUSES = List.of(TicketStatus.RESOLVED, TicketStatus.CLOSED);
 
-
-    private static final Map<TicketPriority, Duration> SLA_TARGETS = new EnumMap<>(Map.of(
-            TicketPriority.CRITICAL, Duration.ofHours(2),
-            TicketPriority.HIGH,     Duration.ofHours(8),
-            TicketPriority.MEDIUM,   Duration.ofHours(24),
-            TicketPriority.LOW,      Duration.ofHours(72)));
-
     private final TicketRepository ticketRepository;
     private final TicketCategoryRepository categoryRepository;
     private final TicketValidator validator;
@@ -63,8 +56,10 @@ public class TicketService
     private final CustomerLookupService customerLookup;
     private final CallerVerificationService verificationService;
     private final CurrentUserService currentUserService;
+    private final SlaService slaService;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final CustomerActivityRepository activityRepository;
 
 
 
@@ -88,7 +83,7 @@ public class TicketService
 
         TicketPriority priority = request.priority() != null ? request.priority() : category.getDefaultPriority();
         String title = isBlank(request.title()) ? category.getName() : request.title().trim();
-        String errorCode = isBlank(request.errorCode()) ? category.getDefaultErrorCode()
+        String errorCode = isBlank(request.errorCode()) ? latestFailureCode(customer, category)
                 : request.errorCode().trim().toUpperCase(Locale.ROOT);
 
 
@@ -97,7 +92,7 @@ public class TicketService
 
         Ticket ticket = new Ticket(ticketRepository.nextTicketNumber(), customer, category, title,
                 request.description().trim(), priority, TicketOrigin.MANUAL, request.platform(),
-                errorCode, reference, agent, now, now.plus(SLA_TARGETS.get(priority)));
+                errorCode, reference, agent, now, slaService.dueAt(priority, now));
         ticket.assignTo(agent);                                              // the creator owns it
         ticketRepository.save(ticket);
 
@@ -152,9 +147,9 @@ public class TicketService
             throw new InvalidStatusTransitionException(from, to);
         }
 
-        ticket.moveTo(to, clock.instant());
-
-
+        Instant now = clock.instant();
+        ticket.moveTo(to, now);
+        ticket.updateSlaState(slaService.evaluate(ticket, now).state());
 
         events.publishEvent(new TicketStatusChangedEvent(ticket.getId(), ticket.getTicketNumber(),
                 from, to, actorId));
@@ -193,7 +188,17 @@ public class TicketService
 
     private TicketDto toDto(Ticket ticket)
     {
-        return TicketMapper.toDto(ticket, statusMachine.agentChoicesFrom(ticket.getStatus()));
+        return TicketMapper.toDto(ticket, statusMachine.agentChoicesFrom(ticket.getStatus()), slaService.evaluate(ticket));
+    }
+
+    /** E3-S1: the error code of the customer's latest failure on this ticket's service, else the category default. */
+    private String latestFailureCode(Customer customer, TicketCategory category)
+    {
+        String service = category.getParent() == null ? category.getCode() : category.getParent().getCode();
+        return activityRepository.findFirstByCustomerIdAndServiceAndResultOrderByOccurredAtDesc(
+                        customer.getId(), service, ActivityResult.FAILURE)
+                .map(CustomerActivity::getErrorCode)
+                .orElse(category.getDefaultErrorCode());
     }
 
     private static boolean isBlank(String value)

@@ -1,4 +1,4 @@
-package com.supportdesk.customer.entity;
+package com.supportdesk.customer.enums;
 
 
 public enum Segment

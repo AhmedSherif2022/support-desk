@@ -15,7 +15,10 @@
     { "key": "password", "value": "Password123!" },
     { "key": "accessToken", "value": "" },
     { "key": "refreshToken", "value": "" },
-    { "key": "adminAccessToken", "value": "" }
+    { "key": "adminAccessToken", "value": "" },
+    { "key": "cif", "value": "CIF-100245" },
+    { "key": "otherCif", "value": "CIF-100101" },
+    { "key": "ticketNumber", "value": "" }
   ],
   "item": [
     {
@@ -244,6 +247,21 @@
           }
         },
         {
+          "name": "Admin reads the audit log (filtered)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200 OK', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Paged', () => pm.expect(body).to.have.keys('items', 'page', 'size', 'totalItems', 'totalPages'));",
+            "pm.test('Only ACCESS_DENIED rows', () => body.items.forEach(i => pm.expect(i.action).to.eql('ACCESS_DENIED')));"
+          ] } }],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/audit/logs?action=ACCESS_DENIED&size=5",
+            "description": "Admin and Reviewer only. Filters: username, action, entity, entityId, from, to. Paging: page, size, sort."
+          }
+        },
+        {
           "name": "Admin opens a ticket",
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
             "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
@@ -276,13 +294,777 @@
           "name": "OpenAPI spec (JSON)",
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
             "pm.test('200 OK', () => pm.response.to.have.status(200));",
-            "pm.test('Documents the auth endpoints', () => pm.expect(pm.response.json().paths).to.have.property('/api/auth/login'));"
+            "const paths = pm.response.json().paths;",
+            "pm.test('Documents auth, customer, ticket, and queue endpoints', () => {",
+            "  pm.expect(paths).to.include.all.keys('/api/auth/login', '/api/customers/{cif}', '/api/tickets', '/api/tickets/queue', '/api/tickets/{number}', '/api/tickets/{number}/status');",
+            "});"
           ] } }],
           "request": {
             "auth": { "type": "noauth" },
             "method": "GET",
             "url": "{{baseUrl}}/v3/api-docs",
             "description": "Public. Open {{baseUrl}}/swagger-ui.html in a browser for the interactive version."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Home queue (E3-S4)",
+      "description": "Runs as mona (logged in by folder 3). Confirm-fix tickets first, paused last, otherwise highest SLA % used first.",
+      "item": [
+        {
+          "name": "Queue, riskiest first",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Counts every chip', () => pm.expect(body.counts).to.have.keys('ALL', 'AT_RISK', 'CONFIRM_FIX', 'AUTO_CREATED'));",
+                  "pm.test('Every row names one next action and one SLA value', () => body.tickets.forEach(t => {",
+                  "  pm.expect(t.nextActionLabel).to.be.a('string');",
+                  "  pm.expect(t.slaLabel).to.be.a('string');",
+                  "}));",
+                  "pm.test('Paused tickets are at the bottom', () => {",
+                  "  const firstPaused = body.tickets.findIndex(t => t.paused);",
+                  "  if (firstPaused >= 0) body.tickets.slice(firstPaused).forEach(t => pm.expect(t.paused).to.eql(true));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/queue",
+            "description": "Agent only. Each row: ID, issue, customer, segment, platform, error code, SLA, origin, next action."
+          }
+        },
+        {
+          "name": "Queue chip AT_RISK",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('At risk or breached only', () => body.tickets.forEach(t => pm.expect(t.slaState).to.be.oneOf(['AT_RISK', 'BREACHED'])));",
+                  "pm.test('Counts still include the other chips', () => pm.expect(body.counts.ALL).to.be.at.least(body.tickets.length));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/queue?chip=AT_RISK"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Customer 360 (E2)",
+      "description": "Runs as mona. Search, the verification gate, masking and reveal, diagnosis, activity and the customer's tickets. Leaves Sara (CIF-100245) verified for folder 7.",
+      "item": [
+        {
+          "name": "Search by CIF",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json().results[0];",
+                  "pm.test('Sara, masked', () => {",
+                  "  pm.expect(r.cif).to.eql(pm.collectionVariables.get('cif'));",
+                  "  pm.expect(r.maskedMobile).to.eql('+20••••••4567');",
+                  "  pm.expect(r.matchedBy).to.eql('CIF');",
+                  "  pm.expect(r.openTicketCount).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/search?q={{cif}}",
+            "description": "One box: CIF, national ID, mobile (01…/20…/+20…) or ticket number (#2001). Audited as CUSTOMER_SEARCHED without the text."
+          }
+        },
+        {
+          "name": "Search by ticket number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('The ticket owner', () => pm.expect(pm.response.json().results[0].matchedBy).to.eql('TICKET'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/search?q=%232001"
+          }
+        },
+        {
+          "name": "Search with no match",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Says how to fix it', () => pm.expect(pm.response.json().message).to.eql('No match. Check the digits and the ID type.'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/search?q=CIF-000000"
+          }
+        },
+        {
+          "name": "End verification (start clean)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/customers/{{cif}}/end-call",
+            "description": "Locks the customer again, so the next request proves the gate."
+          }
+        },
+        {
+          "name": "Customer 360 before verification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "pm.test('code CALLER_NOT_VERIFIED', () => pm.expect(pm.response.json().code).to.eql('CALLER_NOT_VERIFIED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/{{cif}}",
+            "description": "Nothing about the customer shows before verification."
+          }
+        },
+        {
+          "name": "Verify with one check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable', () => pm.response.to.have.status(422));",
+                  "pm.test('Two checks must pass', () => pm.expect(pm.response.json().message).to.eql('Two checks must pass.'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/customers/{{cif}}/verify",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"passedChecks\": [\n    \"DATE_OF_BIRTH\"\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify with two checks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Verified', () => pm.expect(pm.response.json().verified).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/customers/{{cif}}/verify",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"passedChecks\": [\n    \"DATE_OF_BIRTH\",\n    \"MOBILE_ON_FILE\"\n  ]\n}"
+            },
+            "description": "Audited as CALLER_VERIFIED."
+          }
+        },
+        {
+          "name": "Verification status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Verified for this agent', () => pm.expect(pm.response.json().verified).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/{{cif}}/verification",
+            "description": "Whether the current agent has an active verification for this customer."
+          }
+        },
+        {
+          "name": "Customer 360 header",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json();",
+                  "pm.test('Masked after verification', () => {",
+                  "  pm.expect(c.maskedNationalId).to.eql('••••••••••4567');",
+                  "  pm.expect(c.maskedMobile).to.eql('+20••••••4567');",
+                  "  pm.expect(c.verifiedAt).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/{{cif}}",
+            "description": "Audited as CUSTOMER_DATA_VIEWED."
+          }
+        },
+        {
+          "name": "Reveal the mobile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Only that field, in full', () => pm.expect(pm.response.json().value).to.eql('+201001234567'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/customers/{{cif}}/reveal",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"field\": \"MOBILE\"\n}"
+            },
+            "description": "Audited as CUSTOMER_FIELD_REVEALED with the field name."
+          }
+        },
+        {
+          "name": "What the logs already say",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json();",
+                  "pm.test('Most frequent failure', () => {",
+                  "  pm.expect(d.hasFailures).to.eql(true);",
+                  "  pm.expect(d.topFailure.errorCode).to.eql('ERR_AUTH_503');",
+                  "  pm.expect(d.topFailure.service).to.eql('AUTHENTICATION');",
+                  "});",
+                  "pm.test('Lists services to rule out', () => pm.expect(d.servicesWithoutFailures).to.include('OTP'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/{{cif}}/diagnosis"
+          }
+        },
+        {
+          "name": "Activity (default: 6 hours, failures)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const a = pm.response.json();",
+                  "pm.test('Default filter', () => { pm.expect(a.range).to.eql('LAST_6_HOURS'); pm.expect(a.failuresOnly).to.eql(true); });",
+                  "pm.test('Failures only', () => a.events.forEach(e => pm.expect(e.failure).to.eql(true)));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/{{cif}}/activity"
+          }
+        },
+        {
+          "name": "Activity, 7 days, WEB chip, with successes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Only WEB events', () => pm.response.json().events.forEach(e => pm.expect(e.platform).to.eql('WEB')));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/{{cif}}/activity?range=LAST_7_DAYS&failuresOnly=false&platform=WEB"
+          }
+        },
+        {
+          "name": "Customer's tickets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const t = pm.response.json();",
+                  "pm.test('Tickets with origin and status', () => { pm.expect(t.tickets.length).to.be.above(0); pm.expect(t.tickets[0].origin).to.be.a('string'); });",
+                  "pm.test('Repeat caller flag', () => pm.expect(t.repeatCaller).to.be.a('boolean'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/{{cif}}/tickets"
+          }
+        },
+        {
+          "name": "Caller failed (Ahmed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/customers/{{otherCif}}/verification-failed",
+            "description": "Audited as CALLER_VERIFICATION_FAILED. Nothing about Ahmed is unlocked."
+          }
+        },
+        {
+          "name": "Ahmed stays locked",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "pm.test('code CALLER_NOT_VERIFIED', () => pm.expect(pm.response.json().code).to.eql('CALLER_NOT_VERIFIED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/customers/{{otherCif}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Ticket workspace (E3)",
+      "description": "Runs as mona with Sara verified by folder 6. Creates a ticket and walks it through the lifecycle and tabs.",
+      "item": [
+        {
+          "name": "Precheck (duplicate warning)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Warns about the open ticket for the same problem', () => pm.expect(pm.response.json().warnings.map(w => w.code)).to.include('DUPLICATE_OPEN_TICKET'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets/precheck",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cif\": \"{{cif}}\",\n  \"categoryCode\": \"PAYMENT_FAILED\"\n}"
+            },
+            "description": "E3-S1: before creating, warns when the customer already has an open ticket for the same problem."
+          }
+        },
+        {
+          "name": "Create ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const t = pm.response.json();",
+                  "pm.test('Latest failed error code of that service attached', () => pm.expect(t.errorCode).to.eql('PAY_TIMEOUT'));",
+                  "pm.test('Pinned next step', () => pm.expect(t.nextActionLabel).to.eql('Start guide'));",
+                  "pm.collectionVariables.set('ticketNumber', t.number.replace('#', ''));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cif\": \"{{cif}}\",\n  \"categoryCode\": \"PAYMENT_FAILED\",\n  \"priority\": \"HIGH\",\n  \"description\": \"Card payment fails at checkout.\",\n  \"reference\": \"TRX-2026-01111\",\n  \"platform\": \"MOBILE\",\n  \"allowDuplicate\": true\n}"
+            },
+            "description": "Platform, category, priority and description are required; Transfers/Payments need TRX-. Audited as TICKET_CREATED."
+          }
+        },
+        {
+          "name": "Create without priority",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('code VALIDATION_FAILED', () => pm.expect(pm.response.json().code).to.eql('VALIDATION_FAILED'));",
+                  "pm.test('Names the field', () => pm.expect(pm.response.json().fieldErrors).to.have.property('priority'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cif\": \"{{cif}}\",\n  \"categoryCode\": \"PAYMENT_FAILED\",\n  \"description\": \"x\",\n  \"reference\": \"TRX-2026-01111\",\n  \"platform\": \"MOBILE\",\n  \"allowDuplicate\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Start troubleshooting",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Next step: Escalate', () => pm.expect(pm.response.json().nextActionLabel).to.eql('Escalate'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"TROUBLESHOOTING\"\n}"
+            },
+            "description": "Audited as TICKET_STATUS_CHANGED with before and after."
+          }
+        },
+        {
+          "name": "Not allowed: close from troubleshooting",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable', () => pm.response.to.have.status(422));",
+                  "pm.test('code INVALID_STATUS_TRANSITION', () => pm.expect(pm.response.json().code).to.eql('INVALID_STATUS_TRANSITION'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CLOSED\"\n}"
+            },
+            "description": "Audited as TICKET_TRANSITION_REJECTED, even though the change is rolled back."
+          }
+        },
+        {
+          "name": "Wait on customer (SLA pauses)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const t = pm.response.json();",
+                  "pm.test('Paused, next step Resume', () => { pm.expect(t.slaLabel).to.eql('Paused'); pm.expect(t.nextActionLabel).to.eql('Resume'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/status",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"WAITING_ON_CUSTOMER\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get ticket (pinned next step)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const t = pm.response.json();",
+                  "pm.test('One SLA value and one next step', () => { pm.expect(t.slaLabel).to.eql('Paused'); pm.expect(t.nextActionLabel).to.eql('Resume'); });",
+                  "pm.test('Agent choices from here', () => pm.expect(t.allowedNextStatuses).to.include('TROUBLESHOOTING'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}",
+            "description": "The ticket header: SLA label and meter, the pinned next step, and the statuses the agent may choose."
+          }
+        },
+        {
+          "name": "Log customer contact",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/contacts",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Told the customer we are checking the payment and will call back.\"\n}"
+            },
+            "description": "Audited as CUSTOMER_CONTACTED."
+          }
+        },
+        {
+          "name": "Customer contact tab",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Count for the tab label', () => pm.expect(pm.response.json().count).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/contacts"
+          }
+        },
+        {
+          "name": "Timeline tab",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const h = pm.response.json();",
+                  "pm.test('Newest first', () => pm.expect(h.items[0].action).to.eql('TICKET_STATUS_CHANGED'));",
+                  "pm.test('Created and two changes', () => pm.expect(h.count).to.eql(3));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/timeline"
+          }
+        },
+        {
+          "name": "Audit tab",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Includes the rejected change', () => pm.expect(pm.response.json().items.map(i => i.action)).to.include('TICKET_TRANSITION_REJECTED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/audit"
+          }
+        },
+        {
+          "name": "My open tickets (page of 8)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const p = pm.response.json();",
+                  "pm.test('Paged by 8', () => { pm.expect(p.size).to.eql(8); pm.expect(p.items.length).to.be.at.most(8); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets?view=OPEN"
+          }
+        },
+        {
+          "name": "Find the ticket by number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Exactly that ticket', () => pm.expect(pm.response.json().totalItems).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets?q=%23{{ticketNumber}}"
           }
         }
       ]

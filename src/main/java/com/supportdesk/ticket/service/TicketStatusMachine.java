@@ -1,5 +1,5 @@
 package com.supportdesk.ticket.service;
-import com.supportdesk.ticket.entity.TicketStatus;
+import com.supportdesk.ticket.enums.TicketStatus;
 import com.supportdesk.ticket.exception.InvalidStatusTransitionException;
 import org.springframework.stereotype.Component;
 import java.util.Collections;
@@ -8,7 +8,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
-import static com.supportdesk.ticket.entity.TicketStatus.*;
+import static com.supportdesk.ticket.enums.TicketStatus.*;
 
 
 @Component
