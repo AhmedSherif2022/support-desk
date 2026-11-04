@@ -23,7 +23,8 @@ class SupportDeskApplicationTests
     {
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.tags[*].name", containsInAnyOrder("Audit", "Auth", "Customers", "Tickets")))
+                .andExpect(jsonPath("$.tags[*].name", containsInAnyOrder("Audit", "Auth", "Customers", "Tickets",
+                        "Guides", "Guide runs")))
                 .andExpect(jsonPath("$.paths['/api/auth/login'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/audit/logs'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/customers/{cif}'].get").exists())
@@ -33,6 +34,11 @@ class SupportDeskApplicationTests
                 .andExpect(jsonPath("$.paths['/api/tickets/queue'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/tickets/{number}'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/tickets/{number}/status'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/guides/recommended'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/guide-runs'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/guide-runs/{id}'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/guide-runs/{id}/answers'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/guide-runs/{id}/answers/{position}'].delete").exists())
                 .andExpect(jsonPath("$.components.schemas.QueueResponse").exists())
                 .andExpect(jsonPath("$.components.schemas.QueueTicketResponse").exists());
     }

@@ -29,10 +29,11 @@ public final class Permissions
             new Rule("/api/audit/**",     Set.of(Role.GUIDE_ADMIN, Role.REVIEWER)),
             new Rule("/api/customers/**", Set.of(Role.AGENT)),
             new Rule("/api/tickets/**",   Set.of(Role.AGENT)),
-            new Rule("/api/queue/**",     Set.of(Role.AGENT))
+            new Rule("/api/queue/**",     Set.of(Role.AGENT)),
+            new Rule("/api/guides/**",    Set.of(Role.AGENT)),          // E4: guides that fit a ticket
+            new Rule("/api/guide-runs/**", Set.of(Role.AGENT))          // E4: run a guide on a call
 
             // Add when these packages are built (agree the URLs with the team):
-            // , new Rule("/api/guide-runs/**",  Set.of(Role.AGENT))    // E4: run a guide on a call
             // , new Rule("/api/escalations/**", Set.of(Role.AGENT))    // E5: escalate, ask SRE for update
             // , new Rule("/api/incidents/**",   Set.of(Role.AGENT))    // E6: incident call list
     );

@@ -18,7 +18,11 @@
     { "key": "adminAccessToken", "value": "" },
     { "key": "cif", "value": "CIF-100245" },
     { "key": "otherCif", "value": "CIF-100101" },
-    { "key": "ticketNumber", "value": "" }
+    { "key": "ticketNumber", "value": "" },
+    { "key": "guideTicket", "value": "" },
+    { "key": "guideId", "value": "" },
+    { "key": "guideRunId", "value": "" },
+    { "key": "noGuideTicket", "value": "" }
   ],
   "item": [
     {
@@ -1065,6 +1069,328 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/tickets?q=%23{{ticketNumber}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Guided troubleshooting (E4)",
+      "description": "E4-S1 and E4-S2. Runs after folder 6 has verified Sara, as mona.",
+      "item": [
+        {
+          "name": "Create a Login Failed ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const t = pm.response.json();",
+                  "pm.test('Pinned next step', () => pm.expect(t.nextActionLabel).to.eql('Start guide'));",
+                  "pm.collectionVariables.set('guideTicket', t.number.replace('#', ''));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Sara's latest login failure is ERR_AUTH_503, so the ticket gets that error code.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cif\": \"{{cif}}\",\n  \"categoryCode\": \"LOGIN_FAILED\",\n  \"priority\": \"HIGH\",\n  \"description\": \"Customer cannot use the app.\",\n  \"platform\": \"MOBILE\",\n  \"allowDuplicate\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Recommended guides (error code first)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const guides = pm.response.json();",
+                  "pm.test('Error-code match first, named', () => {",
+                  "    pm.expect(guides[0].matchedBy).to.eql('ERROR_CODE');",
+                  "    pm.expect(guides[0].matchLabel).to.eql('Matches error ERR_AUTH_503');",
+                  "});",
+                  "pm.test('Only the live version is offered', () => pm.expect(guides[0].liveVersion).to.eql(2));",
+                  "pm.collectionVariables.set('guideId', pm.response.json()[0].guideId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/guides/recommended?ticket={{guideTicket}}",
+            "header": [],
+            "description": "Live guides on the ticket's platform whose error code or category matches."
+          }
+        },
+        {
+          "name": "Start the guide",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const run = pm.response.json();",
+                  "pm.test('On the first step of the pinned version', () => {",
+                  "    pm.expect(run.version).to.eql(2);",
+                  "    pm.expect(run.currentStep.stepKey).to.eql('app-version');",
+                  "});",
+                  "pm.collectionVariables.set('guideRunId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Moves the ticket to Troubleshooting and audits GUIDE_STARTED with the version.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketNumber\": \"{{guideTicket}}\",\n  \"guideId\": \"{{guideId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Start it again (one run per ticket)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('GUIDE_RUN_ALREADY_ACTIVE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketNumber\": \"{{guideTicket}}\",\n  \"guideId\": \"{{guideId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Answer step 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const run = pm.response.json();",
+                  "pm.test('Next step, with the ERR_AUTH_503 hint', () => {",
+                  "    pm.expect(run.currentStep.stepKey).to.eql('other-device');",
+                  "    pm.expect(run.currentStep.hint.answerKey).to.eql('no');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}/answers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"app-version\",\n  \"answerKey\": \"yes\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Answer a step the run is not on",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('INVALID_GUIDE_ROUTE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}/answers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "The server checks every answer against the run's version.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"status-page\",\n  \"answerKey\": \"no\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Answer step 2 (as the hint suggests)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('On step 3', () => pm.expect(pm.response.json().currentStep.stepKey).to.eql('status-page'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}/answers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"other-device\",\n  \"answerKey\": \"no\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Previous (clear answer 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Back on step 2, answer cleared', () => {",
+                  "    const run = pm.response.json();",
+                  "    pm.expect(run.currentStep.stepKey).to.eql('other-device');",
+                  "    pm.expect(run.path.length).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}/answers/2",
+            "header": [],
+            "description": "Sending the same position again changes nothing."
+          }
+        },
+        {
+          "name": "Get the run",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}",
+            "header": [],
+            "description": ""
+          }
+        },
+        {
+          "name": "Create a ticket no guide fits",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const t = pm.response.json();",
+                  "pm.test('Pinned next step', () => pm.expect(t.nextActionLabel).to.eql('Escalate'));",
+                  "pm.collectionVariables.set('noGuideTicket', t.number.replace('#', ''));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "No live guide covers App Crashing, so the next step is Escalate.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cif\": \"{{cif}}\",\n  \"categoryCode\": \"APP_CRASHING\",\n  \"priority\": \"HIGH\",\n  \"description\": \"Customer cannot use the app.\",\n  \"platform\": \"MOBILE\",\n  \"allowDuplicate\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Recommended guides (none)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Empty', () => pm.expect(pm.response.json()).to.eql([]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/guides/recommended?ticket={{noGuideTicket}}",
+            "header": [],
+            "description": ""
           }
         }
       ]

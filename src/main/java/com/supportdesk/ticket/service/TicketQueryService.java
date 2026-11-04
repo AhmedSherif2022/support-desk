@@ -1,5 +1,6 @@
 package com.supportdesk.ticket.service;
 
+import com.supportdesk.guide.service.GuideMatcher;
 import com.supportdesk.ticket.enums.NextAction;
 import com.supportdesk.ticket.enums.QueueChip;
 import com.supportdesk.ticket.dto.QueueResponse;
@@ -20,6 +21,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * The home queue (E3-S4): open tickets in risk order, with a count for every chip in the same call.
@@ -32,15 +34,17 @@ public class TicketQueryService
 
     private final TicketRepository tickets;
     private final SlaService slaService;
+    private final GuideMatcher guideMatcher;
 
     @Transactional(readOnly = true)
     public QueueResponse queue(QueueChip chip)
     {
         QueueChip selected = chip == null ? QueueChip.ALL : chip;
         Instant now = slaService.now();
+        Predicate<Ticket> hasGuide = guideMatcher.loadAvailability();
         // TODO (E8 triage): leave out tickets waiting for Guide Admin triage once that status exists.
         List<QueueTicketResponse> open = tickets.findByStatusNotIn(CLOSED_STATUSES).stream()
-                .map(ticket -> toResponse(ticket, now))
+                .map(ticket -> toResponse(ticket, now, hasGuide.test(ticket)))
                 .sorted(riskOrder())
                 .toList();
 
@@ -51,10 +55,10 @@ public class TicketQueryService
         return new QueueResponse(selected, counts(open), visible);
     }
 
-    private QueueTicketResponse toResponse(Ticket ticket, Instant now)
+    private QueueTicketResponse toResponse(Ticket ticket, Instant now, boolean guideAvailable)
     {
         SlaSnapshot snapshot = slaService.evaluate(ticket, now);
-        NextAction next = NextAction.resolve(ticket.getStatus(), snapshot.state());
+        NextAction next = NextAction.resolve(ticket.getStatus(), snapshot.state(), guideAvailable);
         return new QueueTicketResponse(
                 ticket.getId(),
                 ticket.displayNumber(),

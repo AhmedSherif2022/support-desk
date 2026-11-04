@@ -15,9 +15,9 @@ public final class TicketMapper
     {
     }
 
-    public static TicketDto toDto(Ticket t, Set<TicketStatus> allowedNext, SlaSnapshot sla)
+    public static TicketDto toDto(Ticket t, Set<TicketStatus> allowedNext, SlaSnapshot sla, boolean guideAvailable)
     {
-        NextAction next = NextAction.resolve(t.getStatus(), sla.state());
+        NextAction next = NextAction.resolve(t.getStatus(), sla.state(), guideAvailable);
         return new TicketDto(t.getId(), t.displayNumber(), t.getTitle(), t.getDescription(),
                 t.getCustomer().getCif(), t.getCustomer().getFullName(),
                 t.getCategory().fullName(), t.getCategory().getCode(), t.getPriority(),

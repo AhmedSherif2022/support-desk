@@ -8,6 +8,7 @@ import com.supportdesk.customer.entity.CustomerActivity;
 import com.supportdesk.customer.repository.CustomerActivityRepository;
 import com.supportdesk.customer.service.CallerVerificationService;
 import com.supportdesk.customer.service.CustomerLookupService;
+import com.supportdesk.guide.service.GuideMatcher;
 import com.supportdesk.ticket.dto.TicketDtos.ChangeStatusRequest;
 import com.supportdesk.ticket.dto.TicketDtos.CreateTicketRequest;
 import com.supportdesk.ticket.dto.TicketDtos.PrecheckDto;
@@ -60,6 +61,7 @@ public class TicketService
     private final ApplicationEventPublisher events;
     private final Clock clock;
     private final CustomerActivityRepository activityRepository;
+    private final GuideMatcher guideMatcher;
 
 
 
@@ -83,8 +85,9 @@ public class TicketService
 
         TicketPriority priority = request.priority() != null ? request.priority() : category.getDefaultPriority();
         String title = isBlank(request.title()) ? category.getName() : request.title().trim();
-        String errorCode = isBlank(request.errorCode()) ? latestFailureCode(customer, category)
-                : request.errorCode().trim().toUpperCase(Locale.ROOT);
+        Optional<String> customerErrorCode = isBlank(request.errorCode()) ? latestFailureCode(customer, category)
+                : Optional.of(request.errorCode().trim().toUpperCase(Locale.ROOT));
+        String errorCode = customerErrorCode.orElse(category.getDefaultErrorCode());
 
 
         Instant now = clock.instant();
@@ -94,6 +97,9 @@ public class TicketService
                 request.description().trim(), priority, TicketOrigin.MANUAL, request.platform(),
                 errorCode, reference, agent, now, slaService.dueAt(priority, now));
         ticket.assignTo(agent);                                              // the creator owns it
+        if (customerErrorCode.isEmpty()) {
+            ticket.markErrorCodeAsCategoryDefault();
+        }
         ticketRepository.save(ticket);
 
 
@@ -188,17 +194,17 @@ public class TicketService
 
     private TicketDto toDto(Ticket ticket)
     {
-        return TicketMapper.toDto(ticket, statusMachine.agentChoicesFrom(ticket.getStatus()), slaService.evaluate(ticket));
+        return TicketMapper.toDto(ticket, statusMachine.agentChoicesFrom(ticket.getStatus()), slaService.evaluate(ticket),
+                guideMatcher.hasGuideFor(ticket));
     }
 
-    /** E3-S1: the error code of the customer's latest failure on this ticket's service, else the category default. */
-    private String latestFailureCode(Customer customer, TicketCategory category)
+    /** E3-S1: the error code of the customer's latest failure on this ticket's service. */
+    private Optional<String> latestFailureCode(Customer customer, TicketCategory category)
     {
         String service = category.getParent() == null ? category.getCode() : category.getParent().getCode();
         return activityRepository.findFirstByCustomerIdAndServiceAndResultOrderByOccurredAtDesc(
                         customer.getId(), service, ActivityResult.FAILURE)
-                .map(CustomerActivity::getErrorCode)
-                .orElse(category.getDefaultErrorCode());
+                .map(CustomerActivity::getErrorCode);
     }
 
     private static boolean isBlank(String value)
