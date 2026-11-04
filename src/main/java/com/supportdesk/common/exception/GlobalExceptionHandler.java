@@ -3,6 +3,7 @@ import com.supportdesk.common.enums.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -62,6 +63,12 @@ public class GlobalExceptionHandler
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataConflict(DataIntegrityViolationException ex, HttpServletRequest request) {
         log.warn("Data conflict on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        return error(ErrorCode.DATA_CONFLICT, request);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiError> handleConcurrentChange(OptimisticLockingFailureException ex, HttpServletRequest request) {
+        log.warn("Concurrent change on {}: {}", request.getRequestURI(), ex.getMessage());
         return error(ErrorCode.DATA_CONFLICT, request);
     }
 

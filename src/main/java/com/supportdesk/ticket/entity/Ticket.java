@@ -98,6 +98,9 @@ public class Ticket extends BaseEntity {
 
     private Instant lastCustomerContactAt;
 
+    @Column(nullable = false)
+    private boolean errorCodeFromCategory;
+
 
     public Ticket(Long ticketNumber, Customer customer, TicketCategory category, String title,
                   String description, TicketPriority priority, TicketOrigin origin, Platform platform,
@@ -179,6 +182,17 @@ public class Ticket extends BaseEntity {
     public void recordCustomerContact(Instant when)
     {
         this.lastCustomerContactAt = when;
+    }
+
+    public void markErrorCodeAsCategoryDefault()
+    {
+        this.errorCodeFromCategory = true;
+    }
+
+    /** The error the customer hit, given on the call or found in their logs. Null when only the category default is known. */
+    public String customerErrorCode()
+    {
+        return errorCodeFromCategory ? null : errorCode;
     }
 
     public boolean isOpen()

@@ -58,7 +58,9 @@ class PermissionMatrixTest
             "/api/audit/**",     Set.of(GUIDE_ADMIN, REVIEWER),
             "/api/customers/**", Set.of(AGENT),
             "/api/tickets/**",   Set.of(AGENT),
-            "/api/queue/**",     Set.of(AGENT));
+            "/api/queue/**",     Set.of(AGENT),
+            "/api/guides/**",    Set.of(AGENT),
+            "/api/guide-runs/**", Set.of(AGENT));
 
     private static final Map<Role, List<String>> SCREENS = Map.of(
             AGENT,       List.of("HOME", "CUSTOMER_SEARCH", "MY_TICKETS", "NOTIFICATIONS"),

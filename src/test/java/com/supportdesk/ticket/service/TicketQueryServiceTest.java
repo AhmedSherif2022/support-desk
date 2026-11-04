@@ -3,6 +3,7 @@ package com.supportdesk.ticket.service;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.customer.entity.Customer;
 import com.supportdesk.customer.enums.Platform;
+import com.supportdesk.guide.service.GuideMatcher;
 import com.supportdesk.ticket.enums.QueueChip;
 import com.supportdesk.ticket.config.TicketProperties;
 import com.supportdesk.ticket.dto.QueueResponse;
@@ -53,7 +54,9 @@ class TicketQueryServiceTest
     {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         slaService = new SlaService(properties(), clock);
-        query = new TicketQueryService(tickets, slaService);
+        GuideMatcher guides = mock(GuideMatcher.class);
+        lenient().when(guides.loadAvailability()).thenReturn(ticket -> true);
+        query = new TicketQueryService(tickets, slaService, guides);
 
         sara = mock(Customer.class);
         lenient().when(sara.getCif()).thenReturn("CIF-100245");

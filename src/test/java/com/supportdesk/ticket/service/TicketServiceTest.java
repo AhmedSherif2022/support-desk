@@ -67,7 +67,8 @@ class TicketServiceTest
     private final TicketService service = new TicketService(ticketRepository, categoryRepository,
             new TicketValidator(), new TicketStatusMachine(), customerLookup, verificationService,
             currentUserService, slaService, events, clock,
-            mock(com.supportdesk.customer.repository.CustomerActivityRepository.class));
+            mock(com.supportdesk.customer.repository.CustomerActivityRepository.class),
+            mock(com.supportdesk.guide.service.GuideMatcher.class));
 
     private final Customer sara = mock(Customer.class);
     private final User mona = mock(User.class);

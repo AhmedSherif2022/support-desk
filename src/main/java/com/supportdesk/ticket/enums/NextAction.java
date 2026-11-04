@@ -30,10 +30,10 @@ public enum NextAction
     }
 
     /** Null for a closed ticket: nothing is left to do. */
-    public static NextAction resolve(TicketStatus status, SlaState sla)
+    public static NextAction resolve(TicketStatus status, SlaState sla, boolean guideAvailable)
     {
         return switch (status) {
-            case NEW, REOPENED -> START_GUIDE;
+            case NEW, REOPENED -> guideAvailable ? START_GUIDE : ESCALATE;
             case TROUBLESHOOTING -> ESCALATE;
             case WAITING_ON_CUSTOMER -> RESUME;
             case ESCALATED -> WAIT_FOR_SRE;
