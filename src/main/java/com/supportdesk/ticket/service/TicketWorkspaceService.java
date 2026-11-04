@@ -94,4 +94,15 @@ public class TicketWorkspaceService
         return new ContactDto(contact.getId(), contact.getNote(),
                 contact.getAuthor() == null ? null : contact.getAuthor().getFullName(), contact.getCreatedAt());
     }
+    @Transactional
+    public ContactDto logCustomerScript(Ticket ticket, User agent, String script)
+    {
+        Instant now = clock.instant();
+        TicketContact contact = contactRepository.save(
+                new TicketContact(ticket, agent, "Told customer: " + script.trim(), now));
+        ticket.recordCustomerContact(now);
+        auditService.recordForCurrentUser(AuditAction.CUSTOMER_CONTACTED, TicketAuditListener.ENTITY,
+                String.valueOf(ticket.getTicketNumber()), null, Map.of("contactId", contact.getId(), "source", "GUIDE"));
+        return toDto(contact);
+    }
 }

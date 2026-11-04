@@ -1,0 +1,14 @@
+ALTER TABLE troubleshooting_sessions
+    ADD COLUMN outcome_key      VARCHAR(60),
+    ADD COLUMN outcome_type     VARCHAR(15),
+    ADD COLUMN completion_notes VARCHAR(2000),
+    ADD CONSTRAINT ck_troubleshooting_sessions_outcome_type
+        CHECK (outcome_type IS NULL OR outcome_type IN ('RESOLVED', 'ESCALATE', 'FOLLOW_UP'));
+
+
+ALTER TABLE audit_logs DROP CONSTRAINT ck_audit_logs_action;
+ALTER TABLE audit_logs ADD CONSTRAINT ck_audit_logs_action CHECK (action IN (
+    'ACCESS_DENIED', 'USER_LOGIN', 'USER_LOCKED', 'CUSTOMER_DATA_VIEWED',
+    'CUSTOMER_SEARCHED', 'CALLER_VERIFIED', 'CALLER_VERIFICATION_FAILED', 'CUSTOMER_FIELD_REVEALED',
+    'TICKET_CREATED', 'TICKET_STATUS_CHANGED', 'TICKET_TRANSITION_REJECTED', 'CUSTOMER_CONTACTED',
+    'SLA_WARNING', 'SLA_BREACHED', 'GUIDE_STARTED', 'GUIDE_COMPLETED'));
