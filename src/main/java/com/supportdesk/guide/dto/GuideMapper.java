@@ -20,7 +20,7 @@ import com.supportdesk.ticket.entity.Ticket;
 import java.util.List;
 import java.util.stream.IntStream;
 
-public final class GuideMapper
+public final class  GuideMapper
 {
     private GuideMapper()
     {
@@ -49,9 +49,9 @@ public final class GuideMapper
 
         CurrentStepDto current = walk.position() instanceof AtStep at
                 ? currentStep(version.getTree(), at, taken.size() + 1, run.getTicket().customerErrorCode()) : null;
-        OutcomeDto outcome = walk.position() instanceof AtOutcome reached
-                ? new OutcomeDto(reached.key(), reached.outcome().type(), reached.outcome().result(),
-                        reached.outcome().customerScript())
+        OutcomeDto outcome = walk.position() instanceof AtOutcome(String key, GuideTree.Outcome outcome1)
+                ? new OutcomeDto(key, outcome1.type(), outcome1.result(),
+                        outcome1.customerScript())
                 : null;
 
         return new GuideRunDto(run.getId(), run.getTicket().displayNumber(), version.getGuide().getId(),
