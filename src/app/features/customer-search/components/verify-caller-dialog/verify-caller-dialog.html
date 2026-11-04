@@ -1,5 +1,5 @@
 <!-- Overlay: a click outside the card closes the popup -->
-<div class="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" (click)="closed.emit()">
+<dialog class="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" (click)="closed.emit()">
 
   <section role="dialog" aria-modal="true" aria-labelledby="verify-title" aria-describedby="verify-desc"
            class="w-full max-w-110 rounded-[20px] bg-white p-5 shadow-modal"
@@ -49,4 +49,4 @@
       </button>
     </div>
   </section>
-</div>
+</dialog>
