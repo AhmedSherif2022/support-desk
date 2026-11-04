@@ -6,6 +6,7 @@ import com.supportdesk.guide.enums.OutcomeType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
 import java.util.List;
@@ -90,6 +91,21 @@ public final class GuideDtos
             OutcomeType type,
             String result,
             @Schema(description = "What to say to the customer.") String customerScript)
+    {
+    }
+
+    public record CompleteRunRequest(
+            @Schema(example = "Customer updated the app and logged in.")
+            @Size(max = 2000, message = "Notes can be at most 2000 characters.") String notes)
+    {
+    }
+
+    public record CompletedRunDto(
+            GuideRunDto run,
+            @Schema(example = "RESOLVED") OutcomeType outcomeType,
+            @Schema(description = "The ticket's status after the outcome.", example = "RESOLVED")
+            com.supportdesk.ticket.enums.TicketStatus ticketStatus,
+            @Schema(description = "Logged to Customer contact as \"Told customer: …\".") String customerScript)
     {
     }
 }

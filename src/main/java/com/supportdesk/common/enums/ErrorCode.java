@@ -46,7 +46,8 @@ public enum ErrorCode
     GUIDE_RUN_ALREADY_ACTIVE(HttpStatus.CONFLICT, "This ticket already has a guide in progress."),
     GUIDE_RUN_NOT_ACTIVE(HttpStatus.CONFLICT, "This guide run is finished."),
     GUIDE_DOES_NOT_FIT(HttpStatus.UNPROCESSABLE_ENTITY, "This guide does not fit the ticket's platform, category or error."),
-    INVALID_GUIDE_ROUTE(HttpStatus.UNPROCESSABLE_ENTITY, "This answer does not fit the current step.");
+    INVALID_GUIDE_ROUTE(HttpStatus.UNPROCESSABLE_ENTITY, "This answer does not fit the current step."),
+    GUIDE_OUTCOME_NOT_REACHED(HttpStatus.CONFLICT, "Finish the guide's questions before completing it.");
 
     private final HttpStatus status;
     private final String message;

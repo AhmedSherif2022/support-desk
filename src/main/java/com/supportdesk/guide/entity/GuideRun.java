@@ -8,10 +8,13 @@ import com.supportdesk.guide.entity.GuideTree.AtOutcome;
 import com.supportdesk.guide.entity.GuideTree.AtStep;
 import com.supportdesk.guide.entity.GuideTree.Walk;
 import com.supportdesk.guide.enums.GuideRunStatus;
+import com.supportdesk.guide.enums.OutcomeType;                 // E4-S3
 import com.supportdesk.ticket.entity.Ticket;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;                            // E4-S3
+import jakarta.persistence.Enumerated;                          // E4-S3
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -49,6 +52,20 @@ public class GuideRun extends BaseEntity
     private Instant startedAt;
 
     private Instant completedAt;
+
+
+    @Column(length = 60)
+    private String outcomeKey;
+
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 15)
+    private OutcomeType outcomeType;
+
+
+    @Column(length = 2000)
+    private String completionNotes;
+
 
     @OneToMany(mappedBy = "run", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("position")
@@ -105,9 +122,22 @@ public class GuideRun extends BaseEntity
         answers.removeIf(answer -> answer.getPosition() >= position);
     }
 
-    /** Ends a run its ticket has moved on from, so the ticket can start a guide again. */
+
     public void abandon(Instant now)
     {
         completedAt = now;
+    }
+
+    public void complete(String outcomeKey, OutcomeType outcomeType, String notes, Instant now)
+    {
+        this.outcomeKey = outcomeKey;
+        this.outcomeType = outcomeType;
+        this.completionNotes = notes == null || notes.isBlank() ? null : notes.trim();   // empty notes → null
+        this.completedAt = now;
+    }
+
+    public boolean isCompletedWithOutcome()
+    {
+        return completedAt != null && outcomeType != null;
     }
 }

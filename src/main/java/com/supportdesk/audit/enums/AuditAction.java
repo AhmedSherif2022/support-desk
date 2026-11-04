@@ -16,5 +16,7 @@ public enum AuditAction {
     CUSTOMER_CONTACTED,
     SLA_WARNING,
     SLA_BREACHED,
-    GUIDE_STARTED
-}
+    GUIDE_STARTED,
+    GUIDE_COMPLETED
+    }
+

@@ -2,6 +2,8 @@ package com.supportdesk.guide.controller;
 
 import com.supportdesk.common.exception.ApiError;
 import com.supportdesk.guide.dto.GuideDtos.AnswerRequest;
+import com.supportdesk.guide.dto.GuideDtos.CompleteRunRequest;      // E4-S3
+import com.supportdesk.guide.dto.GuideDtos.CompletedRunDto;         // E4-S3
 import com.supportdesk.guide.dto.GuideDtos.GuideRunDto;
 import com.supportdesk.guide.dto.GuideDtos.StartGuideRunRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,14 +23,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
-/**
- * HTTP contract for running a guide on a call. {@link GuideRunController} only implements this and delegates.
- * Every call returns the whole run, so the screen always redraws from what the server holds.
- */
 @RequestMapping("/api/guide-runs")
 @PreAuthorize("hasRole('AGENT')")
 @Tag(name = "Guide runs", description = "Run a guide one question at a time: start it on a ticket, answer the current step, "
-        + "and go back. A run stays on the version it started on.")
+        + "go back, and finish it on its outcome. A run stays on the version it started on.")   // E4-S3: "finish"
 public interface GuideRunApi
 {
     @PostMapping
@@ -98,4 +96,27 @@ public interface GuideRunApi
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     GuideRunDto clearFrom(@Parameter(example = "17") @PathVariable Long id,
                           @Parameter(description = "1-based, from the run's path.", example = "2") @PathVariable int position);
+
+
+
+    @PostMapping("/{id}/complete")
+    @Operation(summary = "Finish a guide",
+            description = "Applies the reached outcome to the ticket (Resolved → RESOLVED, Follow-up → WAITING_ON_CUSTOMER "
+                    + "with the SLA paused, Escalate → ESCALATED), saves the outcome on the run, audits GUIDE_COMPLETED "
+                    + "with the session summary and logs the customer script as \"Told customer: …\".")
+    @ApiResponse(responseCode = "200", description = "Run completed, with the outcome applied and the ticket's new status")
+    @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: notes longer than 2000 characters, or MALFORMED_REQUEST",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "401", description = "UNAUTHORIZED: no token, or it expired",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "403", description = "FORBIDDEN: not an AGENT",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "404", description = "GUIDE_RUN_NOT_FOUND",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "409", description = "GUIDE_OUTCOME_NOT_REACHED: the questions are not finished, or the run is already completed",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "422", description = "INVALID_STATUS_TRANSITION: the ticket was moved by hand to a status the outcome cannot leave",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    CompletedRunDto complete(@Parameter(example = "17") @PathVariable Long id,
+                             @Valid @RequestBody CompleteRunRequest request);
 }
