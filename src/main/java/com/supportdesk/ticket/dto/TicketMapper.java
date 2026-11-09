@@ -6,7 +6,6 @@ import com.supportdesk.ticket.dto.TicketDtos.TicketDto;
 import com.supportdesk.ticket.entity.Ticket;
 import com.supportdesk.ticket.enums.TicketStatus;
 
-import java.util.Locale;
 import java.util.Set;
 
 public final class TicketMapper
@@ -25,12 +24,6 @@ public final class TicketMapper
                 name(t.getAssignedAgent()), sla.state(), t.getSlaDueAt(), allowedNext,
                 t.getReopenCount(), t.getCreatedAt(),
                 sla.percentUsed(), sla.label(), next, next == null ? null : next.label());
-    }
-
-    public static String label(TicketStatus status)
-    {
-        String s = status.name().replace('_', ' ').toLowerCase(Locale.ROOT);
-        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     private static String name(User user)
