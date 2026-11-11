@@ -1,8 +1,12 @@
 spring:
+  # Optional .env.local (gitignored) in the working dir, e.g. Neon credentials.
+  # Without it, falls back to the Docker Postgres from compose.yaml.
+  config:
+    import: optional:file:./.env.local[.properties]
   datasource:
-    url: jdbc:postgresql://localhost:5434/supportdesk
-    username: supportdesk
-    password: supportdesk
+    url: ${DB_URL:jdbc:postgresql://localhost:5434/supportdesk}
+    username: ${DB_USERNAME:supportdesk}
+    password: ${DB_PASSWORD:supportdesk}
   # db/seed holds local-only staff accounts; prod runs db/migration alone.
   flyway:
     locations: classpath:db/migration,classpath:db/seed

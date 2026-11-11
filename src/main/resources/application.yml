@@ -1,3 +1,6 @@
+server:
+  port: ${PORT:8080}                # Railway injects PORT
+
 spring:
   application:
     name: support-desk
@@ -6,6 +9,12 @@ spring:
   docker:
     compose:
       enabled: false
+  # No defaults: production must supply these (Railway service variables).
+  # The local profile overrides them with Docker / .env.local values.
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa:
     open-in-view: false
     hibernate:
