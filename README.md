@@ -1,231 +1,602 @@
-# Digital Support Portal — Backend
+# Digital Support Portal
 
-Spring Boot backend for the bank's internal customer-service portal. Agents find and verify a caller, see what went wrong
-for them (Customer 360), and work tickets against an SLA. Guide Admins and Reviewers maintain the troubleshooting guides.
-Every important action is written to an append-only audit trail.
+Epics, stories and acceptance criteria for Phase 1. Each epic ends with its tech tasks.
 
-Requirements come from **Digital Support Portal — Epics, Stories and Acceptance Criteria** (10 epics, 52 stories).
-Story IDs below (`E2-S4`, …) match that document.
+Oct 6, 2026 · @Walid
 
-> **Scope of this repo:** backend only. Acceptance criteria about screens, keyboard shortcuts, dialogs or layout belong
-> to the frontend and are marked **Frontend** below; the backend provides the data they need.
+## How to read this
 
----
+Phase 1 has 10 epics and 52 stories for the Customer Service Agent and the Guide Admin. Each story has acceptance criteria (ACs) in Given / When / Then form and an ID you can copy into the backlog. Tech tasks are listed at the end of each epic.
 
-## Status at a glance
+SRE has no portal stories: SRE works in Azure DevOps, and the portal reacts to it through E5. Team Leader appears only as a notification recipient. The v3 prototype demonstrates the stories in E2–E9; sign-in (E1-S1) and RTL (E10-S4) are not in it yet.
 
-| Epic | Backend status | Stories |
-|---|---|---|
-| **E1** Access, roles and audit | **Mostly done** | 4 / 4 started · open: DB grants, Admin landing page, Team Leader alert |
-| **E2** Caller verification and Customer 360 | **Mostly done** | 6 / 6 started · open: incident/guide links, ADO numbers (need E4–E6) |
-| **E3** Tickets, queue and SLA | **Mostly done** | 7 / 7 started · open: incident link, Work tab, triage filter (need E4–E6, E8) |
-| **E4** Guided troubleshooting | Not started | 0 / 5 |
-| **E5** Azure DevOps integration | Not started | 0 / 7 (escalation statuses exist in the state machine) |
-| **E6** Automatic tickets and incidents | Not started | 0 / 6 |
-| **E7** Guide authoring and review | Not started | 0 / 7 (`/api/admin/**`, `/api/review/**` are already role-protected) |
-| **E8** Triage, analytics and feedback | Not started | 0 / 4 |
-| **E9** Notifications | Not started | 0 / 2 (SLA warning/breach events already published) |
-| **E10** Platform and non-functional | **Partly done** | Global error handler and OpenAPI done · Dockerfile, health, correlation IDs open |
+### Roles
 
-Automated tests: **153 passing** · API: **25 operations** in Swagger · Postman: **51 requests** passing live.
+| Role                   | Short name | Works in                            |
+|------------------------|------------|-------------------------------------|
+| Customer Service Agent | Agent      | Portal — calls, tickets, guides     |
+| Guide Admin (author)   | Admin      | Portal — guides, rules, triage      |
+| Guide Admin (reviewer) | Reviewer   | Portal — approves guide versions    |
+| SRE                    | SRE        | Azure DevOps only                   |
+| System                 | System     | Monitor job, outbox worker, webhook |
 
----
+### Epic overview
 
-## Quick start
+| Epic                                    | Goal                                                                 | Stories | Priority |
+|-----------------------------------------|----------------------------------------------------------------------|---------|----------|
+| E1 Access, roles and audit              | Right people see the right data; every action is traceable           | 4       | P1       |
+| E2 Caller verification and Customer 360 | Agent knows what happened before the caller finishes explaining      | 6       | P1       |
+| E3 Tickets, queue and SLA               | Agent always knows the next ticket and the next step                 | 7       | P1       |
+| E4 Guided troubleshooting               | Solve on the first call with versioned decision trees                | 5       | P1       |
+| E5 Azure DevOps integration             | Escalation reaches SRE reliably; SRE state flows back                | 7       | P1       |
+| E6 Automatic tickets and incidents      | Errors become tickets before the customer calls; outages are grouped | 6       | P1       |
+| E7 Guide authoring and review           | Admins change guides safely and live, with four-eyes review          | 7       | P1       |
+| E8 Triage, analytics and feedback       | Gaps in knowledge get found and fixed                                | 4       | P2       |
+| E9 Notifications                        | The right person hears about changes                                 | 2       | P1       |
+| E10 Platform and non-functional         | Runnable, observable, accessible, secure                             | 4       | P1       |
 
-**You need:** JDK 21 or newer (JDK 26 works), Docker Desktop.
+## Contents
 
-```bash
-docker compose up -d     # PostgreSQL 16 on localhost:5434
-./mvnw spring-boot:run   # the app on http://localhost:8080 (profile "local")
-```
+- [E1 Access, roles and audit](#e1-access-roles-and-audit)
+- [E2 Caller verification and Customer 360](#e2-caller-verification-and-customer-360)
+- [E3 Tickets, queue and SLA](#e3-tickets-queue-and-sla)
+- [E4 Guided troubleshooting](#e4-guided-troubleshooting)
+- [E5 Azure DevOps integration](#e5-azure-devops-integration)
+- [E6 Automatic tickets and incidents](#e6-automatic-tickets-and-incidents)
+- [E7 Guide authoring and review](#e7-guide-authoring-and-review)
+- [E8 Triage, analytics and feedback](#e8-triage-analytics-and-feedback)
+- [E9 Notifications](#e9-notifications)
+- [E10 Platform and non-functional](#e10-platform-and-non-functional)
 
-Flyway creates the schema and, on the `local` profile only, loads demo data from `src/main/resources/db/seed/`.
+## E1 Access, roles and audit
 
-| What | Where |
-|---|---|
-| Swagger UI | http://localhost:8080/swagger-ui.html — log in, press **Authorize**, paste the `accessToken` |
-| OpenAPI JSON | http://localhost:8080/v3/api-docs |
-| Postman | import `postman/SupportDesk.postman_collection.json`, run it top to bottom with the Collection Runner |
-| Status report (PDF) | `docs/E1-E3-alignment-report.pdf` — every E1–E3 criterion with before / now / where |
+Goal: only the right role sees each screen and field, and every important action is recorded.
 
-**Seeded staff** (local only, password `Password123!`): `mona` AGENT · `youssef` GUIDE_ADMIN · `nour` REVIEWER
+### E1-S1 Sign in with role
 
-**Seeded customers:** Sara `CIF-100245` (3 failed logins with `ERR_AUTH_503` in the last hours) · Mai `CIF-100311`
-(not enrolled) · Ahmed `CIF-100101` (no failures). The activity seed re-runs on every start, so "the last 6 hours"
-always has data.
+As a portal user, I want to sign in and land on my role's home, so that I see only my work.
 
-### Running the tests
+- Given valid credentials, when I sign in, then I land on Home (Agent) or Review queue (Admin, Reviewer).
+- Given 5 failed attempts in 15 minutes, when I try again, then the account is locked for 15 minutes and USER_LOCKED is audited.
+- Given 30 minutes of inactivity, when I act, then I'm asked to sign in again and unsaved form text is kept.
+- Given I sign in, then USER_LOGIN is audited with role and IP.
 
-```bash
-./mvnw test
-```
+### E1-S2 Backend enforces permissions
 
-Unit tests need nothing. Integration tests (`*IntegrationTest`, `SupportDeskApplicationTests`) use the local
-PostgreSQL from `docker compose`, so start it first. They leave small test users and tickets behind on purpose:
-audit rows can never be deleted.
+As the bank, I want every API to check the role, so that hiding a button is never the only protection.
 
-### Configuration
+- Given an Agent token, when it calls any guide-admin API, then the API returns 403 and ACCESS_DENIED is audited.
+- Given an Admin token, when it calls a customer or ticket API, then the API returns 403.
+- Given a direct URL to a screen my role can't use, when I open it, then I see "Not available for your role".
+- Given the permission matrix in the Features doc, then an automated test covers every row.
 
-| Setting | Default | Notes |
-|---|---|---|
-| `JWT_SECRET` | dev-only value in `application-local.yml` | **Required** outside the local profile (base64, 256-bit or more) |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Frontend origins |
-| `supportdesk.auth.session-timeout` | `15m` | Access token (JWT) lifetime |
-| `supportdesk.auth.inactivity-timeout` | `30m` | Refresh token lifetime, pushed out on every refresh |
-| `supportdesk.auth.max-failed-attempts` / `failure-window` / `lock-duration` | `5` / `15m` / `15m` | Lockout rule |
-| `supportdesk.tickets.sla.targets` | 2h / 8h / 24h / 72h | Critical / High / Medium / Low |
-| `supportdesk.tickets.sla.warning-at-percent` | `75` | Amber SLA meter and `SLA_WARNING` |
+### E1-S3 Append-only audit log
 
-Before deploying behind a proxy, set `server.forward-headers-strategy: native` so audit IPs come from trusted proxies
-only, and turn Swagger off in production with `springdoc.api-docs.enabled: false`.
+As a reviewer of operations, I want an audit trail that can't be edited, so that we can prove what happened.
 
----
+- Given any action in the audit event list, when it happens, then a record with user, role, action, entity, entity ID, time, before and after is written in the same transaction.
+- Given the audit table, then there is no update or delete API, and the DB user for the app has INSERT and SELECT only.
+- Given Admin or Reviewer, when they open Audit log, then they can filter by user, action, entity and date, with pagination.
 
-## Project structure
+### E1-S4 Data-view auditing
 
-Every feature uses the same layers as `common`. A feature only has the layers it needs.
+As the bank, I want every view of customer data recorded, so that insider misuse is visible.
 
-```
-src/main/java/com/supportdesk/
-├── common/    config · dto · entity · enums · exception          shared building blocks
-├── auth/      config · controller · dto · entity · enums · exception · repository · security · service
-├── audit/     controller · dto · entity · enums · event · listener · repository · service
-├── customer/  controller · dto · entity · enums · exception · repository · service
-└── ticket/    config · controller · dto · entity · enums · event · exception · listener · repository · service
-```
+- Given a verified caller, when the Agent opens Customer 360, then CUSTOMER_DATA_VIEWED is audited.
+- Given a customer search, then CUSTOMER_SEARCHED is audited without storing the raw search text.
+- Given more than 30 searches by one Agent in 10 minutes, then further searches return 429 and the Team Leader is notified.
 
-Tests mirror the package of what they test; end-to-end HTTP tests sit in the feature's `controller` test package.
+### E1 tech tasks
 
-**Conventions**
-- Controllers implement an `…Api` interface that holds the mappings and all Swagger annotations.
-- Every error body is `{code, message, fieldErrors, path, timestamp}`; codes come from `common/enums/ErrorCode`.
-- Business audits go through `AuditService`, which joins the caller's transaction (`MANDATORY`).
-- Migrations are numbered `V1…V9`; agree the next number with the team before adding one. Local-only demo data lives in `db/seed`.
-- One branch per story or step; never commit straight to `main`.
+- [ ] Auth service: JWT (15 min) + refresh token, lockout, session timeout.
+- [ ] Role and permission tables; method-level guards on every controller.
+- [ ] AuditLog entity, insert-only repository, DB grants, index on (entity, entity_id, created_at).
+- [ ] Audit interceptor that writes in the business transaction.
+- [ ] Rate limiter on search endpoint (per user).
+- [ ] Integration tests: one per row of the permission matrix.
 
----
+## E2 Caller verification and Customer 360
 
-## What is done
+Goal: the Agent knows what went wrong for this customer before the caller finishes explaining.
 
-### E1 Access, roles and audit
+### E2-S1 Search customers
 
-| Story | Status | Notes |
-|---|---|---|
-| **E1-S1** Sign in with role | Mostly | JWT login with access + refresh token. 5 failures **within 15 minutes** lock for 15 minutes. `USER_LOGIN` (with role and IP) and `USER_LOCKED` are audited. 30 minutes without activity ends the session (sliding refresh token). *Open:* Admin should land on Review queue, but the permission matrix gives Admin no review access (team decision). *Frontend:* keep unsaved form text. |
-| **E1-S2** Backend enforces permissions | Done | One permission matrix drives `SecurityConfig`: no token → 401, wrong role → 403 + `ACCESS_DENIED` (with role and the real client IP). `/api/auth/me` returns `allowedScreens`. `PermissionMatrixTest` covers every role × area. *Frontend:* "Not available for your role". |
-| **E1-S3** Append-only audit log | Mostly | Each record has user, role, action, entity, entity ID, time, before and after, written **in the business transaction**. Rows are `@Immutable`, and a database trigger blocks UPDATE, DELETE and TRUNCATE. `GET /api/audit/logs` (Admin, Reviewer) filters by user, action, entity and date, with paging. Index on (entity, entity_id, created_at). *Open:* an INSERT/SELECT-only database user. |
-| **E1-S4** Data-view auditing | Mostly | `CUSTOMER_DATA_VIEWED` on Customer 360. `CUSTOMER_SEARCHED` stores what matched, never the search text. More than 30 searches in 10 minutes → 429. *Open:* notify the Team Leader (needs E9 and the role). |
+As an Agent, I want one search box for CIF, national ID, mobile, ticket or ADO number, so that I find the caller fast.
 
-### E2 Caller verification and Customer 360
+- Given any of those values, when I search, then matching customers show with name, segment, masked mobile, enrollment status and open-ticket count.
+- Given a ticket or ADO number, when I search, then the owning customer is the result.
+- Given no match, then I see "No match. Check the digits and the ID type."
+- Given I press "/" anywhere outside a field, then focus moves to the search box.
 
-| Story | Status | Notes |
-|---|---|---|
-| **E2-S1** Search customers | Mostly | `GET /api/customers/search?q=` for CIF, national ID, mobile (`01…`, `20…`, `+20…`) or ticket number. Results: name, segment, masked mobile, enrollment status, open-ticket count. "No match. Check the digits and the ID type." *Open:* ADO number (E5). *Frontend:* "/" focuses search. |
-| **E2-S2** Verification gate | Done | Nothing about a customer is returned before verification (403 `CALLER_NOT_VERIFIED`). Two of the checks must pass ("Two checks must pass."). `CALLER_VERIFIED` and `CALLER_VERIFICATION_FAILED` are audited. End verification locks the customer again. |
-| **E2-S3** Masked fields with audited reveal | Done | National ID shows the last 4 digits, mobile the first 3 and last 4 (server-side). `POST /{cif}/reveal` returns one field and audits `CUSTOMER_FIELD_REVEALED` with the field name. *Frontend:* re-mask on leave. |
-| **E2-S4** Diagnosis from logs | Partly | `GET /{cif}/diagnosis`: most frequent failure of the last 6 hours (count, event type, time range, error code, service), services with no failures, and a device/network hint when nothing failed. *Open:* name a matching incident (E6) and offer "Run guide" (E4). |
-| **E2-S5** Activity timeline | Done | `GET /{cif}/activity`: default last 6 hours + failures only; Today, 7 days, Custom; platform and service chips; counts per chip; empty-state hint. Backed by `customer_activity_log`. |
-| **E2-S6** Customer tickets, incidents and RCA | Partly | `GET /{cif}/tickets` with origin and status; "Repeat caller" when more than one ticket in 20 days. *Open:* Azure work item number and the Incidents & RCA tab (E5, E6). |
+### E2-S2 Verification gate
 
-### E3 Tickets, queue and SLA
+As an Agent, I want to verify the caller before any detail shows, so that we never disclose data to the wrong person.
 
-| Story | Status | Notes |
-|---|---|---|
-| **E3-S1** Create a ticket | Mostly | Verified customer only; platform, category, priority and description required; `TRX-` reference for Transfers and Payments; the customer's latest failed error code on that service is attached; duplicate warning (precheck) and 409. *Open:* link to an open incident, origin "From incident" (E6). |
-| **E3-S2** Ticket lifecycle | Done | Fixed state machine incl. Reopen. `TICKET_STATUS_CHANGED` with before/after; `TICKET_TRANSITION_REJECTED` is kept even though the change rolls back. |
-| **E3-S3** SLA calculation | Done | Targets 2h / 8h / 24h / 72h. One value (`slaLabel`: time left, Paused, Met, Breached Xh Ym) and `slaPercentUsed` for the meter. Warning at 75%; `SLA_WARNING` and `SLA_BREACHED` fire once (scheduler every minute). Pauses on Waiting on customer; keeps running through "SRE fixed it". |
-| **E3-S4** Triaged queue on Home | Mostly | Risk order: confirm-fix first, paused last, otherwise most SLA used. Each row has ID, issue, customer, segment, platform, error code, SLA, origin and one named action. Chips All, At risk, Confirm fix, Auto-created with counts. *Open:* hide tickets waiting for triage (E8). |
-| **E3-S5** Ticket workspace with pinned next step | Partly | One next step per status, shared by queue and ticket. Timeline, Customer contact and Audit tabs, newest first, with counts. *Open:* Work tab content — guide runs, SRE panel, same-incident tickets (E4–E6). |
-| **E3-S6** Log customer communication | Mostly | `POST /api/tickets/{n}/contacts` → Customer contact tab + `CUSTOMER_CONTACTED`. *Open:* log the guide's customer script automatically (E4). |
-| **E3-S7** Ticket list | Mostly | `GET /api/tickets`: the agent's own tickets, All / Open / Resolved & closed, search by ticket number or CIF, 8 per page. *Open:* search by ADO number (E5). |
+- Given an unverified customer, when I open them, then the verification dialog appears and nothing else about the customer is shown.
+- Given fewer than 2 of 3 checks ticked, when I confirm, then confirmation is blocked with "Two checks must pass".
+- Given 2 or more checks, when I confirm, then CALLER_VERIFIED is audited and Customer 360 opens with "Caller verified HH:MM".
+- Given I choose "Caller failed", then CALLER_VERIFICATION_FAILED is audited and no data shows.
+- Given I choose "End verification", then the customer is locked again and I return to Home.
 
-### E10 Platform (partly)
+### E2-S3 Masked fields with audited reveal
 
-- Global exception handler with one consistent error body, no stack traces (E10-S2). ✔
-- OpenAPI documentation with Swagger UI and JWT Authorize. ✔
-- Secrets come from environment variables; only a dev-only JWT default exists in `application-local.yml`. ✔
-- `docker compose` starts PostgreSQL only (backend and frontend not containerised yet).
+As an Agent, I want sensitive fields masked even after verification, so that I see full values only when needed.
 
----
+- Given a verified customer, then national ID shows the last 4 digits and mobile shows the first 3 and last 4.
+- Given I click Reveal on one field, then only that field is unmasked and CUSTOMER_FIELD_REVEALED is audited with the field name.
+- Given I end verification or leave the customer, then revealed fields are masked again.
 
-## What remains
+### E2-S4 Diagnosis from logs
 
-### Open items in E1–E3
+As an Agent, I want a plain-language summary of what failed, so that I don't read raw logs on a live call.
 
-| Item | Story | Blocked by |
-|---|---|---|
-| Admin lands on Review queue | E1-S1 | Team decision: the matrix gives Admin no `/api/review` access |
-| App DB user with INSERT + SELECT only on `audit_logs` | E1-S3 | Team / ops decision (changes the Docker and Flyway setup) |
-| Notify Team Leader when searches are rate-limited | E1-S4 | E9 notifications and a Team Leader role |
-| Role and permission tables (roles are an enum today) | E1 tech | Team decision |
-| Search, list and Customer 360 by Azure work item number | E2-S1, E2-S6, E3-S7 | E5 |
-| Incident in diagnosis; "Run guide" | E2-S4 | E6, E4 |
-| Incidents & RCA tab | E2-S6 | E5, E6 |
-| Link a new ticket to an open incident | E3-S1 | E6 |
-| Keep triage tickets out of the queue | E3-S4 | E8 |
-| Work tab: guide runs, SRE panel, same-incident tickets | E3-S5 | E4, E5, E6 |
-| Auto-log the guide's customer script | E3-S6 | E4 |
-| Dedicated test for the SLA_WARNING / SLA_BREACHED audit rows | E3-S3 | — |
+- Given failures in the last 6 hours, when Customer 360 opens, then "What the logs already say" states the count, event type, time range, error code and service of the most frequent failure.
+- Given the error matches an open incident, then the panel names the incident and says a new ticket will link to it.
+- Given a guide matches the error code, then the panel offers "Run guide" with its live version.
+- Given no failures, then the panel says so and suggests checking device or network.
+- Given other services had no failures, then the panel lists them so the Agent can rule them out.
 
-### Not started
+### E2-S5 Activity timeline
 
-**E4 Guided troubleshooting** (5 stories)
-- S1 recommend guides by platform, category and error code; no match → next step Escalate.
-- S2 runner: one question at a time, Previous, log hints; `GUIDE_STARTED` with the version.
-- S3 outcome (Resolved / Escalate / Follow-up) with the customer script; session saved; `GUIDE_COMPLETED`.
-- S4 version pinning for runs in progress.
-- S5 flag a step to the Guide Admin feedback queue.
-- *Tech:* guide matching query, `TroubleshootingSession` / `TroubleshootingAnswer`, runner API, outcome handler, `GuideFeedback`.
+As an Agent, I want to filter the customer's activity by time, platform, service and result, so that I can track exactly what happened.
 
-**E5 Azure DevOps integration** (7 stories)
-- S1 escalate with reason and urgency; outbox record in the same transaction; work item never contains CIF, national ID or mobile.
-- S2 join an open incident's work item instead of duplicating.
-- S3 reliable delivery: exponential backoff, idempotency key, Failed after 10 attempts with an alert.
-- S4 receive service hooks: signature check, revision ordering, state mapping, `AZURE_WEBHOOK_RECEIVED`.
-- S5 read-only SRE panel. S6 Ask SRE for update (once an hour). S7 Confirm the fix with the customer.
-- *Tech:* outbox + worker, REST client with credentials from Key Vault, webhook endpoint, 15-minute reconciliation job, masked customer token, contract tests.
+- Given Customer 360 opens, then the default filter is Last 6 hours + Failures only.
+- Given I pick Today, 7 days or Custom range, then the list and counts update.
+- Given I toggle Mobile, Web or a service chip, then only matching events show; clicking an active chip clears it.
+- Given each event, then it shows time, event type, platform, service, result and error code; failures are marked red.
+- Given no events match, then I see an empty state explaining how to widen the filter.
 
-**E6 Automatic tickets and incidents** (6 stories)
-- S1 monitor job every minute over `detected_error_event` (`SKIP LOCKED`, processed once, `MONITOR_JOB_RUN`).
-- S2 duplicate protection (same customer + error within 24 hours joins the open ticket).
-- S3 group 5+ customers with the same error and platform within 15 minutes into one incident; thresholds editable (`SETTING_CHANGED`).
-- S4 rule-based auto-escalation. S5 incident bar and customer script. S6 call through an incident's customers.
-- *Tech:* `error_rule`, `monitor_job_run`, `Incident` / `IncidentTicket`, settings table, seed with the 9 test cases.
+### E2-S6 Customer tickets, incidents and RCA
 
-**E7 Guide authoring and review** (7 stories)
-- S1 library · S2 edit a decision tree as a new draft version · S3 validation (missing start, dead routes, loops, unreachable steps).
-- S4 preview · S5 review with a real diff · S6 four-eyes approval (`GUIDE_SELF_APPROVAL_BLOCKED`, `GUIDE_PUBLISHED`, scheduled publish).
-- S7 live update to agents and rollback through review.
-- *Tech:* `Guide`, `GuideVersion` (tree JSON), `GuideMatchRule`, shared validator, diff service, publish scheduler, WebSocket/SSE.
+As an Agent, I want the customer's ticket and incident history in one place, so that the customer doesn't repeat their story.
 
-**E8 Triage, analytics and feedback** (4 stories)
-- S1 triage bucket for unknown error codes; map to a rule (`ERROR_RULE_CREATED`) reclassifies open triage tickets.
-- S2 guide analytics with a "Fix next" verdict · S3 agent feedback queue · S4 error rules and job view, Run job now.
+- Given the Tickets tab, then each ticket shows an origin tag (Manual, Auto-created, From incident), its Azure work item number if any, and status.
+- Given the Incidents & RCA tab, then each linked incident or escalated ticket shows SRE state and the RCA summary when available.
+- Given more than one ticket in 20 days, then a "Repeat caller" note appears.
 
-**E9 Notifications** (2 stories)
-- S1 in-app notifications for agents and Team Leaders, unread count and latest 4.
-- S2 real-time delivery within 5 seconds, reconnect and catch up.
-- *Tech:* `Notification` table and service, WebSocket/SSE channel shared with guide publishing, event-to-recipient mapping.
+### E2 tech tasks
 
-**E10 Platform and non-functional** (remaining)
-- S1 Dockerfiles and one `docker compose up` for backend, frontend and database with seed data and the 9 monitor test cases.
-- S2 structured logs with a correlation ID (also sent to Azure); `/health` for database, Azure reachability and job status (Spring Boot Actuator is not added yet).
-- S3 accessibility and S4 Arabic/RTL (frontend; guide text in Arabic and English per step needs E7).
-- *Tech:* accessibility checks in CI, i18n setup.
+- [ ] Search API across customer, ticket and ADO ID with masking applied server-side.
+- [ ] Verification session per agent+customer (server-side, expires with the session).
+- [ ] Reveal endpoint returning one field, with audit.
+- [ ] customer_activity_log read API with time, platform, service, result filters and index on (cif, created_at).
+- [ ] Diagnosis service: group failures, match incidents and guides.
+- [ ] Customer 360 screen, tabs, filter chips, empty states.
 
-### Frontend (whole portal)
+## E3 Tickets, queue and SLA
 
-Sign-in, Home queue, Customer 360 with tabs and chips, verification dialog, ticket list and workspace, guide runner and
-editor, review/diff, triage, analytics and notifications screens — with loading, empty and error states, keyboard and
-screen-reader support, and Arabic/RTL.
+Goal: the Agent always knows which ticket to touch next and what the next step on it is.
 
----
+### E3-S1 Create a ticket
 
-## Open team decisions
+As an Agent, I want to create a ticket for a verified customer, so that the issue is tracked against an SLA.
 
-1. Where the Admin lands after sign-in (Review queue vs. current matrix).
-2. An INSERT/SELECT-only database user for the audit table.
-3. Role and permission tables instead of the enum.
-4. Team Leader: a real role, or only a notification recipient.
-5. Migration numbering across parallel branches (`V7`–`V9` are taken).
+- Given a verified customer, when I create a ticket, then platform, category, issue, priority and description are required.
+- Given category Transfers or Payments, then a transaction reference starting with TRX- is required.
+- Given the customer's latest failed log matches the ticket's service, then its error code is attached automatically.
+- Given the customer already has an open ticket for the same issue, then a warning offers to open that ticket instead.
+- Given an open incident on the same service, then the form says the ticket will link to it, and on save it does (origin "From incident").
+
+### E3-S2 Ticket lifecycle
+
+As the bank, I want tickets to follow fixed states, so that reports and SLAs are reliable.
+
+- Given the state machine (New, Troubleshooting, Waiting on customer, Escalated, With SRE, SRE fixed it — confirm, Resolved, Reopened, Closed), when any transition outside it is requested, then the API rejects it and TICKET_TRANSITION_REJECTED is audited.
+- Given each allowed transition, then TICKET_STATUS_CHANGED is audited with before and after.
+- Given Resolved, when the customer calls back, then the Agent can Reopen it.
+
+### E3-S3 SLA calculation
+
+As an Agent, I want one SLA number with a meter, so that I see risk at a glance.
+
+- Given priority, then target is Critical 2h, High 8h, Medium 24h, Low 72h.
+- Given the ticket header, then it shows one value: time left, "Paused", "Met", or "breached Xh Ym", plus a meter.
+- Given 75% of target used, then the meter turns amber and SLA_WARNING fires once; at 100% it turns red and SLA_BREACHED fires once.
+- Given status Waiting on customer, then the clock pauses and resumes when troubleshooting resumes.
+- Given status "SRE fixed it — confirm", then the clock keeps running until the Agent resolves.
+
+### E3-S4 Triaged queue on Home
+
+As an Agent, I want one queue ordered by risk, so that I work top-down.
+
+- Given open tickets, then Home lists them ordered by SLA used, with "confirm" tickets near the top and paused tickets at the bottom.
+- Given each row, then it shows ID, issue, customer, segment, platform, error code, SLA state, origin and one named action.
+- Given filter chips All, At risk, Confirm fix, Auto-created, then counts are shown and the list filters.
+- Given tickets waiting for Guide Admin triage, then they are not in this queue.
+
+### E3-S5 Ticket workspace with pinned next step
+
+As an Agent, I want the ticket to tell me the next step, so that nothing stalls.
+
+- Given the ticket status, then the pinned bar shows exactly one next step: Start guide, Escalate, Resume, Wait for SRE, Ask SRE for update, Call & confirm, or Close.
+- Given the Work tab, then guide runs, the read-only SRE panel, a note box, details, same-incident tickets and recent failures are shown.
+- Given Timeline, Customer contact and Audit tabs, then each shows its history newest first with counts in the tab label.
+
+### E3-S6 Log customer communication
+
+As an Agent, I want to log what I told the customer, so that the next person knows.
+
+- Given text in the note box, when I add it, then it appears in Customer contact with time and CUSTOMER_CONTACTED is audited.
+- Given a guide outcome with a customer script, then the script is logged automatically as "Told customer: …".
+
+### E3-S7 Ticket list
+
+As an Agent, I want to search and filter all my tickets, so that I can find older ones.
+
+- Given the list, then I can filter by All, Open, Resolved & closed and search by ticket, CIF or ADO number.
+- Given more than 8 results, then the list paginates with Previous and Next.
+
+### E3 tech tasks
+
+- [ ] Ticket, TicketStatusHistory, Comment entities; state machine service with transition table.
+- [ ] SLA service (target by priority, pause intervals) and SLA monitor job every minute.
+- [ ] Queue API with risk ordering and filter counts in one call.
+- [ ] Next-action resolver shared by queue rows and the ticket bar.
+- [ ] Duplicate check (same CIF + subcategory, open).
+- [ ] Home, ticket list and ticket workspace screens with loading, empty and error states.
+
+## E4 Guided troubleshooting
+
+Goal: Agents solve issues on the first call by following the published decision tree.
+
+### E4-S1 Recommend guides
+
+As an Agent, I want the right guide suggested, so that I don't search for it.
+
+- Given a ticket, then guides whose platform matches and whose category or error code matches are recommended, showing title and live version.
+- Given a guide matches by error code, then that match is preferred and named.
+- Given no guide matches, then the next step becomes Escalate.
+
+### E4-S2 Run a guide step by step
+
+As an Agent, I want one question at a time, so that I can talk to the customer while I follow it.
+
+- Given I start a guide, then the ticket moves to Troubleshooting and GUIDE_STARTED is audited with the version.
+- Given a step, then I see the question, my answers so far, progress, and the options; Next is blocked until I choose one.
+- Given an answer, then the next step or outcome follows the published route.
+- Given Previous, then I return to the last step with my answer cleared.
+- Given the step has a log hint and the customer's error code matches, then a hint suggests the likely answer.
+
+### E4-S3 Outcome and customer script
+
+As an Agent, I want to know what to say at the end, so that every customer hears a consistent message.
+
+- Given the guide reaches an outcome, then I see its type (Resolved, Escalate, Follow-up), its result text and the "Say to the customer" script.
+- Given Resolved, then I can resolve the ticket; Escalate opens the escalation dialog; Follow-up sets Waiting on customer and pauses SLA.
+- Given any outcome, then the session (guide, version, path, duration, outcome) is saved to the ticket and GUIDE_COMPLETED is audited.
+
+### E4-S4 Version pinning
+
+As an Agent, I want my run to stay on the version I started, so that a publish mid-call doesn't change the questions.
+
+- Given a run started on v3, when v4 is published, then my run continues on v3 to the end.
+- Given a saved session, then it always displays with the version it used.
+
+### E4-S5 Flag a step
+
+As an Agent, I want to report a wrong or unclear step, so that the guide gets fixed.
+
+- Given a finished run, when I flag a step with a comment, then it reaches the Guide Admin feedback queue with guide, step, agent and time.
+- Given an empty comment, then sending is blocked.
+
+### E4 tech tasks
+
+- [ ] Guide matching query (platform, category, error code) on published versions.
+- [ ] TroubleshootingSession and TroubleshootingAnswer tables; store version number.
+- [ ] Runner API: start, answer, back, finish — server validates each route against the version's tree.
+- [ ] Outcome handler: resolve / escalate / follow-up with ticket transitions.
+- [ ] GuideFeedback table and endpoint.
+- [ ] Runner screen (one question, progress, answered-path list, hint, script).
+
+## E5 Azure DevOps integration
+
+Goal: escalations reach SRE in Azure DevOps reliably, and SRE's changes flow back to the Agent. Azure is the source of truth for engineering work; the portal is the source of truth for the customer.
+
+### E5-S1 Escalate to SRE
+
+As an Agent, I want to escalate with a reason and urgency, so that SRE gets everything they need.
+
+- Given an open ticket, when I escalate, then reason and urgency are required and the ticket moves to Escalated.
+- Given escalation, then an outbox record is written in the same transaction as the ticket change.
+- Given the outbox worker sends it, then the work item contains ticket ID and URL, masked customer token, platform, service, category, error code, summary, log snapshot, correlation ID, priority, SLA, guide path and reason — never CIF, national ID or mobile.
+- Given success, then the ticket shows ADO number, state and "synced".
+
+### E5-S2 Link to an open incident instead of duplicating
+
+As SRE (in Azure), I want one work item per incident, so that I'm not flooded.
+
+- Given an open incident on the same service and error code, when an Agent escalates, then the ticket links to the incident's work item and no new work item is created.
+- Given the escalation dialog, then it tells the Agent which incident and work item it will join.
+
+### E5-S3 Reliable delivery
+
+As the bank, I want Azure outages to never block customer service, so that calls keep flowing.
+
+- Given Azure is unavailable, when I escalate, then the ticket is saved, sync shows "pending · retrying" and the Agent is told no action is needed.
+- Given retries, then the worker uses exponential backoff and the same idempotency key, so a retry never creates a second work item.
+- Given 10 failed attempts, then sync shows Failed and the failed-integration monitor alerts.
+- Given Azure recovers, then pending items are created and the tickets update.
+
+### E5-S4 Receive Azure changes
+
+As an Agent, I want the ticket to update when SRE acts, so that I don't have to ask.
+
+- Given an Azure service hook, when it arrives, then the signature is checked and unknown work items are rejected and logged.
+- Given an event older than the stored revision, then it is ignored.
+- Given Assigned or Active, then the ticket moves to With SRE and shows the owner.
+- Given a comment tagged public, then it shows as Latest update; other comments never reach the portal.
+- Given Resolved, then the ticket moves to "SRE fixed it — confirm", the RCA summary is stored and the Agent is notified.
+- Given Reopened, then the ticket returns to With SRE.
+- Given every event, then AZURE_WEBHOOK_RECEIVED is audited; for an incident work item, every linked ticket updates.
+
+### E5-S5 Read-only SRE panel
+
+As an Agent, I want to see the technical status without changing it, so that I can answer the customer.
+
+- Given an escalated ticket, then the SRE panel shows work item, sync state and revision, incident, SRE state, owner, latest public update, escalation reason and RCA.
+- Given the panel, then there is no control that changes Azure state; the work item number is shown without a link.
+
+### E5-S6 Ask SRE for an update
+
+As an Agent, I want to nudge SRE without leaving the portal, so that a breached ticket moves.
+
+- Given a ticket With SRE that is not part of an incident, when I click Ask SRE for update, then a comment is posted to the work item, the Team Leader is notified and the timeline records it.
+- Given I asked less than an hour ago, then the action is blocked and tells me when I can ask again.
+- Given a ticket linked to an incident, then the action is not offered; the next step is to wait for the incident fix.
+
+### E5-S7 Confirm the fix with the customer
+
+As an Agent, I want to confirm with the customer before closing, so that "fixed" means fixed for them.
+
+- Given "SRE fixed it — confirm", then the pinned bar shows "Call and confirm" with Confirmed — resolve and Still not working.
+- Given Confirmed, then the ticket resolves and the SLA stops.
+- Given Still not working, then a reopen comment is posted to the work item and the ticket returns to With SRE.
+
+### E5 tech tasks
+
+- [ ] Outbox table, worker, backoff, idempotency key = ticket or incident ID.
+- [ ] Azure DevOps REST client (create work item, add comment); PAT or app credentials from Key Vault.
+- [ ] Webhook endpoint with signature check, revision ordering, state mapping table.
+- [ ] Reconciliation job for open work items (every 15 minutes).
+- [ ] Integration status field on ticket and incident; failed-integration alert.
+- [ ] Masked customer token generator.
+- [ ] Contract tests against an Azure DevOps test project.
+
+## E6 Automatic tickets and incidents
+
+Goal: errors become tickets before the customer calls, and outages are grouped into one incident.
+
+### E6-S1 Monitor job creates tickets
+
+As the System, I want to turn new error rows into tickets every minute, so that the bank acts first.
+
+- Given unprocessed rows in detected_error_event, when the job runs, then each row is locked, processed once and marked with its ticket ID.
+- Given a known error code, then the ticket gets the rule's category, issue and priority, with origin Auto-created.
+- Given the job stops mid-run, when it restarts, then no row is processed twice and no duplicate ticket exists.
+- Given each run, then rows read, created, duplicates and grouped are stored and MONITOR_JOB_RUN is audited.
+
+### E6-S2 Duplicate protection
+
+As an Agent, I want one ticket per customer per error, so that my queue isn't flooded.
+
+- Given an open ticket for the same customer and error code in the last 24 hours, when a new row arrives, then it is added to that ticket's timeline instead.
+- Given an open manual ticket for the same customer and error, then the row joins that ticket.
+
+### E6-S3 Group into an incident
+
+As the bank, I want mass failures grouped automatically, so that SRE sees one problem.
+
+- Given 5 or more customers with the same error code and platform within 15 minutes, then one incident is created with one Azure work item and every matching ticket links to it.
+- Given fewer than 5, then tickets stay separate.
+- Given an incident is created, then linked tickets become Critical and every Agent sees the incident bar.
+- Given the thresholds, then the Admin can change them and SETTING_CHANGED is audited.
+
+### E6-S4 Rule-based auto-escalation
+
+As the System, I want some errors escalated without waiting for a call, so that money issues move fast.
+
+- Given a rule with auto-escalate (e.g. TRX_DEBIT_NO_CREDIT), when its ticket is created and not grouped, then it is escalated to Azure with reason "Auto-escalated by rule".
+
+### E6-S5 Incident bar and customer script
+
+As an Agent, I want the open incident above everything, so that I handle every related call the same way.
+
+- Given an open incident, then Home shows its ID, service, error code, platform, affected customers, SRE state and work item.
+- Given "What to tell customers", then a script opens that matches the incident's state.
+- Given the incident is resolved by SRE and tickets still need confirmation, then the bar turns green and shows how many customers to confirm.
+
+### E6-S6 Call through an incident's customers
+
+As an Agent, I want one list for all customers of an incident, so that confirming 8 people is one flow.
+
+- Given "Work through all N", then a list shows each ticket, customer, masked mobile, status, SLA and the call script.
+- Given a ticket in "SRE fixed it — confirm", then I can record Confirmed, Still failing or No answer.
+- Given Confirmed, then that ticket resolves; Still failing posts a reopen comment to the incident work item; No answer logs an attempt and keeps the ticket open.
+- Given each ticket, then it keeps its own SLA and audit.
+
+### E6 tech tasks
+
+- [ ] detected_error_event, error_rule, monitor_job_run tables; seed script with the 9 test cases.
+- [ ] Scheduled job with SELECT … FOR UPDATE SKIP LOCKED.
+- [ ] Grouping service and Incident / IncidentTicket tables.
+- [ ] Settings table for thresholds with audit.
+- [ ] Incident bar component and script templates per state.
+- [ ] Batch call-through screen and endpoint (one result per ticket).
+
+## E7 Guide authoring and review
+
+Goal: Guide Admins change guides safely, with a second person approving, and changes reach agents without a release.
+
+### E7-S1 Guide library
+
+As an Admin, I want all guides in one place, so that I can see what's live and what's in progress.
+
+- Given the library, then each guide shows title, description, match rules, live version, any draft or review version, runs and resolve rate.
+- Given a Reviewer, then guides open read-only.
+
+### E7-S2 Edit a decision tree
+
+As an Admin, I want to edit steps, answers, routes and outcomes, so that the guide matches reality.
+
+- Given a live guide, when I edit, then a new draft version is created; the live version never changes.
+- Given a draft, then I can add, edit and delete steps, answers, routes, log hints and outcomes, and set the start step.
+- Given each outcome, then I can set type, result text and the customer script.
+- Given match rules, then I can set platforms, categories and error codes, and see how many open tickets the guide would appear for.
+
+### E7-S3 Validation
+
+As an Admin, I want broken guides blocked, so that agents never hit a dead end.
+
+- Given a draft, then validation runs on every change and lists problems: missing start, empty question or answer, route to a missing step, loop, unreachable step.
+- Given any problem, then Submit for review is disabled.
+
+### E7-S4 Preview and test
+
+As an Admin or Reviewer, I want to run a version before it goes live, so that I feel the flow.
+
+- Given Preview, then the runner opens on that version and nothing is saved to any ticket.
+
+### E7-S5 Review with a real diff
+
+As a Reviewer, I want to see exactly what changed, so that I never approve blind.
+
+- Given a version in review, then the diff shows published vs proposed side by side: steps added, removed, reworded, routes added or removed (marked "new route") and outcome changes.
+- Given an outcome type changed, then it is flagged "Check this one" with how many recent runs ended there.
+- Given a step no answer routes to, then it is marked Unreachable and approval is blocked.
+- Given Changes only or Whole guide, then the diff switches view.
+- Given the header, then change count, author's reason and scope (runs, error codes, platforms) are shown.
+
+### E7-S6 Approve, schedule or send back
+
+As a Reviewer, I want to decide with four eyes, so that no one publishes alone.
+
+- Given I authored the version, then approve is disabled and an attempt is audited as GUIDE_SELF_APPROVAL_BLOCKED.
+- Given Approve & publish now, then the version goes live, the previous live version is archived and GUIDE_PUBLISHED is audited.
+- Given Approve, publish in 1 hour, then the version is Scheduled and a job publishes it at that time.
+- Given Send back, then a note is required and the version returns to Draft with the note.
+
+### E7-S7 Live update and rollback
+
+As an Admin, I want changes to reach agents instantly and be reversible, so that fixes are fast and safe.
+
+- Given a publish, then every Agent gets "Guide updated" and recommendations use the new version without reloading.
+- Given an archived version, when I roll back, then a new version with that content is created and goes through review.
+
+### E7 tech tasks
+
+- [ ] Guide, GuideVersion (tree JSON, state), GuideMatchRule tables.
+- [ ] Validator (reachability, loops, missing targets) shared by editor and publish API.
+- [ ] Diff service producing typed changes (added, removed, reworded, route, outcome type).
+- [ ] Review endpoints with self-approval check; scheduler for publish_at.
+- [ ] Publish event over WebSocket/SSE; cache eviction for published guides.
+- [ ] Editor, review/diff and library screens.
+
+## E8 Triage, analytics and feedback
+
+Goal: knowledge gaps get found and fixed by the Guide Admin, not discovered by agents on calls.
+
+### E8-S1 Triage bucket for unknown errors
+
+As an Admin, I want tickets from unknown error codes in my queue, so that agents aren't handed problems nobody has described.
+
+- Given an error code with no rule, when the monitor job creates its ticket, then it goes to Triage (not the agent queue) and is not grouped or escalated.
+- Given Map to a rule, then I set category, issue, priority and auto-escalate; ERROR_RULE_CREATED is audited.
+- Given a rule is saved, then every open triage ticket with that code takes the new values and moves to the agent queue.
+- Given the customer calls before triage, then the Agent still finds the ticket through search and can escalate it.
+
+### E8-S2 Guide analytics with a verdict
+
+As an Admin, I want to know which guide to fix next, so that I spend time where it matters.
+
+- Given the last 30 days, then the page opens with "Fix next: \<guide\>" based on escalation and abandon rates, naming the worst step.
+- Given each guide, then runs and the share resolved on the call, escalated, follow-up and abandoned are shown.
+- Given error codes seen with no matching guide, then they are listed with event counts.
+- Given abandoned steps, then they are ranked by count.
+
+### E8-S3 Agent feedback queue
+
+As an Admin, I want agents' flags in one list, so that I can act on them.
+
+- Given open flags, then each shows guide, step, comment, agent and time, with Fix in editor and Mark done.
+- Given the nav, then the open count is shown.
+
+### E8-S4 Error rules and job view
+
+As an Admin, I want to see and tune how errors become tickets, so that the queue stays useful.
+
+- Given the page, then rules, thresholds (group size, window, duplicate window, job frequency) and recent job runs are shown.
+- Given Run job now, then the job runs and the result is shown.
+
+### E8 tech tasks
+
+- [ ] Triage flag on ticket; queue and grouping exclude it.
+- [ ] Rule creation endpoint that reclassifies open triage tickets in one transaction.
+- [ ] Analytics queries over sessions (outcome per end key, abandoned = started without finish after 30 min).
+- [ ] Triage, analytics, feedback and rules screens.
+
+## E9 Notifications
+
+Goal: each person hears about changes that need them, and nothing else.
+
+### E9-S1 In-app notifications
+
+As an Agent, I want a list of what changed on my tickets, so that I act on it.
+
+- Given these events, then the Agent is notified: work item created, SRE resolved (call to confirm), SLA warning, SLA breached, known incident started, guide updated.
+- Given the Team Leader, then they get Ask SRE for update requests and SLA breaches for their team.
+- Given the nav and Home, then the unread count and the latest 4 unread items are shown; opening the list marks them read.
+
+### E9-S2 Real-time delivery
+
+As an Agent, I want notifications without refreshing, so that I see an incident the moment it starts.
+
+- Given the portal is open, when a notification is created, then it appears within 5 seconds.
+- Given the connection drops, then it reconnects and loads anything missed.
+
+### E9 tech tasks
+
+- [ ] Notification table and service (recipient by role or user).
+- [ ] WebSocket/SSE channel shared with guide publish events.
+- [ ] Event-to-recipient mapping config.
+
+## E10 Platform and non-functional
+
+Goal: the system runs anywhere with one command, is observable, accessible and safe.
+
+### E10-S1 Run with Docker
+
+As a developer, I want one command to start everything, so that setup takes minutes.
+
+- Given docker compose up, then backend, frontend, database (with seed data and the 9 monitor test cases) start and the README's demo script works.
+- Given environment config, then no secret is in the repository.
+
+### E10-S2 Observability
+
+As an operator, I want logs and health checks, so that I can see problems.
+
+- Given any request, then structured logs carry a correlation ID that is also sent to Azure.
+- Given /health, then it reports database, Azure reachability and job status.
+- Given errors, then a global handler returns a consistent error body with no stack trace.
+
+### E10-S3 Accessibility
+
+As an Agent, I want the portal usable by keyboard and screen reader, so that everyone can work.
+
+- Given any control, then it is a real button, link or labelled input with a visible focus ring and at least 44px target.
+- Given state colours, then text meets WCAG AA on its tint (danger \#B42318, warning \#92400E, success \#166534).
+- Given status, then it is never shown by colour alone.
+
+### E10-S4 Arabic and RTL
+
+As an Agent, I want the portal in Arabic, so that I work in my language.
+
+- Given Arabic, then all text is translated and the layout mirrors, including the severity bar, breadcrumb and SLA meter.
+- Given guide text, then Admins can enter Arabic and English per step.
+
+### E10 tech tasks
+
+- [ ] Dockerfiles, docker-compose, seed scripts, README with demo script.
+- [ ] Logging with correlation ID filter; health endpoint; global exception handler.
+- [ ] OpenAPI documentation.
+- [ ] Accessibility checks in CI (axe) and contrast tokens.
+- [ ] i18n setup with RTL stylesheet.
