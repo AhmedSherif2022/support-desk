@@ -1,0 +1,6 @@
+spring:
+  flyway:
+    # Neon production was first migrated with the local profile, so its history
+    # includes the db/seed repeatables (R__seed_*). Prod doesn't ship db/seed;
+    # don't fail validation over those missing scripts.
+    ignore-migration-patterns: "*:missing,*:future"

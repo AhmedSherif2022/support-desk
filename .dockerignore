@@ -1,0 +1,11 @@
+.env
+.env.*
+.git
+.idea
+.vscode
+.claude
+target
+docs
+postman
+state
+*.iml
