@@ -1,0 +1,132 @@
+<header class="mb-6">
+  <h1 class="text-[28px] font-extrabold tracking-tight text-ink">My tickets</h1>
+  <p class="mt-1 text-sm text-ink-3">{{ tickets.mine().length }} tickets</p>
+</header>
+
+<section class="overflow-hidden rounded-[20px] bg-white shadow-card">
+  <!-- Filters -->
+  <div class="flex flex-wrap items-center gap-3 p-5">
+    <div class="flex flex-wrap gap-1.5 text-xs" role="group" aria-label="Status">
+      @for (f of statusFilters; track f.id) {
+        <button type="button" (click)="status.set(f.id)" [attr.aria-pressed]="status() === f.id"
+                class="rounded-full border px-3 py-1.5 font-medium"
+                [class.border-brand]="status() === f.id" [class.bg-brand]="status() === f.id" [class.text-white]="status() === f.id"
+                [class.border-line-2]="status() !== f.id" [class.text-ink]="status() !== f.id">
+          {{ f.label }}
+        </button>
+      }
+      @if (incident()) {
+        <button type="button" (click)="clearIncident()" aria-label="Remove incident filter"
+                class="flex items-center gap-1.5 rounded-full border border-danger/30 bg-danger-tint px-3 py-1.5 font-medium text-danger">
+          {{ incident() }} <i class="pi pi-times text-[10px]"></i>
+        </button>
+      }
+    </div>
+
+    <div class="relative ms-auto w-full sm:w-72">
+      <label for="tq" class="sr-only">Filter by ticket, CIF, ADO or customer</label>
+      <i class="pi pi-search pointer-events-none absolute inset-s-3.5 top-1/2 -translate-y-1/2 text-xs text-ink-3"></i>
+      <input id="tq" type="search" placeholder="Ticket, CIF, ADO or customer"
+             [value]="query()" (input)="query.set($any($event.target).value)"
+             class="h-11 w-full rounded-control border border-line-2 bg-white ps-10 pe-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
+    </div>
+  </div>
+
+  @if (rows().length === 0) {
+    <div class="flex flex-col items-center gap-2 border-t border-line-2 px-6 py-12 text-center">
+      <span class="grid size-12 place-items-center rounded-full bg-page text-ink-3"><i class="pi pi-ticket"></i></span>
+      <b class="text-ink">No tickets match.</b>
+      <span class="text-sm text-ink-3">Try another filter or search.</span>
+    </div>
+  } @else {
+    <!-- Desktop: table -->
+    <div class="hidden overflow-x-auto md:block">
+      <table class="w-full text-sm">
+        <thead class="bg-page text-xs font-bold uppercase tracking-wide text-ink-3">
+          <tr>
+            <th class="px-5 py-3 text-start">Ticket</th>
+            <th class="px-5 py-3 text-start">Customer</th>
+            <th class="px-5 py-3 text-start">Priority</th>
+            <th class="px-5 py-3 text-start">Status</th>
+            <th class="px-5 py-3 text-start">SLA</th>
+            <th class="px-5 py-3"><span class="sr-only">Action</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of rows(); track t.id) {
+            @let sla = tickets.sla(t);
+            <tr class="border-t border-line-2 hover:bg-blue-50/40" [class.bg-danger-tint/40]="sla.state === 'breached'">
+              <td class="px-5 py-4">
+                <a [routerLink]="['/tickets', t.id]" class="whitespace-nowrap font-bold text-ink hover:text-brand">#{{ t.id }} · {{ t.title }}</a>
+                <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                  @if (t.origin === 'monitor') {
+                    <span class="rounded-full bg-blue-50 px-2 py-0.5 font-medium text-brand">Auto-created</span>
+                  }
+                  @if (t.errorCode) {
+                    <span class="rounded-[6px] bg-page px-1.5 py-0.5 font-mono text-[10px] text-ink-2">{{ t.errorCode }}</span>
+                  }
+                  @if (t.transactionRef) {
+                    <span class="font-mono text-[10px] text-ink-3">{{ t.transactionRef }}</span>
+                  }
+                </div>
+              </td>
+              <td class="whitespace-nowrap px-5 py-4">
+                {{ customer(t)?.name }}
+                <div class="text-xs capitalize text-ink-3">{{ customer(t)?.segment }} · {{ t.platform }}</div>
+              </td>
+              <td class="px-5 py-4"><ds-priority [level]="t.priority" /></td>
+              <td class="px-5 py-4">
+                <ds-status-pill [tone]="statusInfo[t.status].tone">
+                  {{ statusInfo[t.status].label }}@if (t.status === 'with-sre') { · {{ t.adoItem }} }
+                </ds-status-pill>
+              </td>
+              <td class="px-5 py-4">
+                @if (sla.state === 'paused' || tickets.isDone(t)) {
+                  <span class="text-xs text-ink-3">{{ tickets.isDone(t) ? (t.resolvedAt | date: 'd MMM') : sla.label }}</span>
+                } @else {
+                  <span class="whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold" [class]="slaClass(sla.state)">{{ sla.label }}</span>
+                }
+              </td>
+              <td class="whitespace-nowrap px-5 py-4 text-end">
+                <a [routerLink]="['/tickets', t.id]" class="text-xs font-bold text-brand hover:underline">{{ action(t) }} →</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Phone: cards -->
+    <ul class="divide-y divide-line-2 border-t border-line-2 md:hidden">
+      @for (t of rows(); track t.id) {
+        @let sla = tickets.sla(t);
+        <li>
+          <a [routerLink]="['/tickets', t.id]" class="flex flex-col gap-2 p-4">
+            <b class="text-sm text-ink">#{{ t.id }} · {{ t.title }}</b>
+            <span class="text-xs text-ink-3">{{ customer(t)?.name }} · <span class="capitalize">{{ t.platform }}</span></span>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+              <ds-priority [level]="t.priority" />
+              <ds-status-pill [tone]="statusInfo[t.status].tone">{{ statusInfo[t.status].label }}</ds-status-pill>
+              @if (sla.state !== 'paused' && !tickets.isDone(t)) {
+                <span class="rounded-full px-2.5 py-1 font-bold" [class]="slaClass(sla.state)">{{ sla.label }}</span>
+              }
+            </div>
+          </a>
+        </li>
+      }
+    </ul>
+  }
+
+  <!-- Pagination -->
+  <div class="flex items-center justify-end gap-3 border-t border-line-2 px-5 py-3 text-xs">
+    <button type="button" (click)="page.set(page() - 1)" [disabled]="page() === 1"
+            class="h-9 rounded-control border border-line-2 px-3 font-bold text-ink hover:bg-page disabled:cursor-not-allowed disabled:opacity-40">
+      Previous
+    </button>
+    <span class="font-semibold text-ink">Page {{ page() }} of {{ pages() }}</span>
+    <button type="button" (click)="page.set(page() + 1)" [disabled]="page() === pages()"
+            class="h-9 rounded-control border border-line-2 px-3 font-bold text-ink hover:bg-page disabled:cursor-not-allowed disabled:opacity-40">
+      Next
+    </button>
+  </div>
+</section>

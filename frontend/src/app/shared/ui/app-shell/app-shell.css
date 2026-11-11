@@ -1,0 +1,29 @@
+:host {
+  display: flex;
+  gap: var(--ds-rail-edge-gap);
+  min-height: 100vh; 
+  box-sizing: border-box;
+  /* The sidebar's active tab flows into this surface. */
+  background: var(--ds-rail-tab-bg);
+}
+
+ds-sidebar {
+  position: sticky;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  padding: 24px;
+}
+
+/* Phone: app bar on top, bottom nav at the bottom; both float, so the content leaves room for them. */
+:host(.phone) {
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+:host(.phone) .content {
+  padding: 40px var(--ds-bottom-nav-gap)
+    calc(var(--ds-bottom-nav-height) + 2 * var(--ds-bar-edge-y) + env(safe-area-inset-bottom));
+}

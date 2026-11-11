@@ -1,0 +1,86 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4.5" novalidate>
+
+  @switch (error()) {
+    @case ('invalid') {
+      <div role="alert" class="flex gap-2.5 rounded-[14px] border border-danger/30 bg-danger-tint p-3 text-[13px] leading-4.75 text-danger">
+        <i class="pi pi-exclamation-circle mt-0.5"></i>
+        <span><b>Username or password is incorrect.</b> After 5 failed attempts in 15 minutes the account locks for 15 minutes.</span>
+      </div>
+    }
+    @case ('locked') {
+      <div role="alert" class="flex gap-2.5 rounded-[14px] border border-warning/30 bg-warning-tint p-3 text-[13px] leading-4.75 text-warning">
+        <i class="pi pi-lock mt-0.5"></i>
+        <span><b>Account locked for 15 minutes.</b> 5 failed attempts in 15 minutes.</span>
+      </div>
+    }
+    @case ('expired') {
+      <div role="status" class="flex gap-2.5 rounded-[14px] border border-success/30 bg-success-tint p-3 text-[13px] leading-4.75 text-success">
+        <i class="pi pi-check-circle mt-0.5"></i>
+        <span><b>Please sign in again.</b> Your account is unlocked. Enter your username and password.</span>
+      </div>
+    }
+  }
+
+
+  <div class="flex flex-col gap-1.5">
+    <label for="username" class="text-[13px] font-bold">Username</label>
+    <div class="relative">
+      <i class="pi pi-user pointer-events-none absolute inset-s-3.5 top-1/2 -translate-y-1/2 text-ink-3"></i>
+      <input id="username" formControlName="username" autocomplete="username"
+             class="h-12 w-full rounded-control border bg-white ps-11 pe-3.5 text-sm outline-none transition
+                    focus:border-brand focus:ring-4 focus:ring-brand/15"
+             [class.border-line-2]="!invalid('username') && error() !== 'invalid'"
+             [class.border-danger]="invalid('username') || error() === 'invalid'"
+             [class.!border-danger]="invalid('username') || error() === 'invalid'"
+             [class.!ring-4]="invalid('username') || error() === 'invalid'"
+             [class.!ring-danger/20]="invalid('username') || error() === 'invalid'"
+             [attr.aria-invalid]="invalid('username')" aria-describedby="username-err" />
+    </div>
+    @if (errorFor('username'); as msg) {
+      <span id="username-err" class="flex items-center gap-1.5 text-xs text-danger">
+        <i class="pi pi-info-circle text-[11px]"></i> {{ msg }}
+      </span>
+    }
+  </div>
+
+
+  <div class="flex flex-col gap-1.5">
+    <label for="password" class="text-[13px] font-bold">Password</label>
+    <div class="relative">
+      <i class="pi pi-lock pointer-events-none absolute inset-s-3.5 top-1/2 -translate-y-1/2 text-ink-3"></i>
+      <input id="password" formControlName="password" autocomplete="current-password"
+             [type]="showPassword() ? 'text' : 'password'"
+             class="h-12 w-full rounded-control border bg-white ps-11 pe-13 text-sm outline-none transition
+                    focus:border-brand focus:ring-4 focus:ring-brand/15"
+             [class.border-line-2]="!invalid('password') && error() !== 'invalid'"
+             [class.border-danger]="invalid('password') || error() === 'invalid'"
+             [class.!border-danger]="invalid('password') || error() === 'invalid'"
+             [class.!ring-4]="invalid('password') || error() === 'invalid'"
+             [class.!ring-danger/20]="invalid('password') || error() === 'invalid'"
+             [attr.aria-invalid]="invalid('password')" aria-describedby="password-err" />
+
+      <button type="button" (click)="showPassword.set(!showPassword())"
+              [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+              class="absolute inset-e-1 top-1 h-10 w-11 rounded-[10px] text-ink-3 hover:bg-page">
+        <i class="pi" [class.pi-eye]="!showPassword()" [class.pi-eye-slash]="showPassword()"></i>
+      </button>
+      
+    </div>
+    @if (errorFor('password'); as msg) {
+      <span id="password-err" class="flex items-center gap-1.5 text-xs text-danger">
+        <i class="pi pi-info-circle text-[11px]"></i> {{ msg }}
+      </span>
+    }
+  </div>
+
+
+  <button type="submit" [disabled]="loading() || error() === 'locked'"
+          class="mt-1.5 flex h-13 items-center justify-center gap-2 rounded-[14px] bg-brand text-[15px] font-bold text-white
+                 shadow-card transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60">
+    @if (loading()) {
+      <i class="pi pi-spin pi-spinner"></i> Signing in…
+    } @else {
+      Sign in <i class="pi pi-arrow-right"></i>
+    }
+  </button>
+</form>

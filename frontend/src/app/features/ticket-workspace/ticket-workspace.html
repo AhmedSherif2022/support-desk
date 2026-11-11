@@ -1,0 +1,300 @@
+@let t = ticket();
+@let c = customer();
+
+@if (!t) {
+  <section class="mx-auto mt-10 flex max-w-md flex-col items-center gap-3 rounded-[20px] bg-white p-8 text-center shadow-card">
+    <span class="grid size-12 place-items-center rounded-full bg-page text-ink-3"><i class="pi pi-ticket"></i></span>
+    <b class="text-ink">Ticket #{{ id() }} not found</b>
+    <a routerLink="/tickets" class="mt-2 rounded-control bg-brand px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-hover">
+      Back to My tickets
+    </a>
+  </section>
+} @else {
+  <!-- Header -->
+  <div class="grid gap-5 lg:grid-cols-[1fr_300px]">
+    <div>
+      <nav class="text-xs text-ink-3" aria-label="Breadcrumb">
+        <a routerLink="/tickets" class="hover:text-brand hover:underline">My tickets</a>
+        <span class="mx-1.5">/</span>
+        @if (verified()) {
+          <a [routerLink]="['/customer-search', t.cif]" class="hover:text-brand hover:underline">{{ c?.name }}</a>
+        } @else {
+          <span>{{ c?.name }}</span>
+        }
+        <span class="mx-1.5">/</span>
+        <span class="text-ink">Ticket #{{ t.id }}</span>
+      </nav>
+
+      <h1 class="mt-3 text-[28px] font-extrabold tracking-tight text-ink">#{{ t.id }} · {{ t.title }}</h1>
+
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <ds-status-pill [tone]="statusInfo[t.status].tone">{{ statusInfo[t.status].label }}</ds-status-pill>
+        @if (t.origin === 'monitor') {
+          <ds-status-pill tone="info" [dot]="false">Auto-created</ds-status-pill>
+        }
+        @if (t.adoItem) {
+          <ds-status-pill tone="sre" [dot]="false">{{ t.adoItem }} · synced</ds-status-pill>
+        }
+        <ds-priority [level]="t.priority" />
+      </div>
+
+      <p class="mt-3 text-xs text-ink-3">
+        {{ c?.name }} · CIF {{ t.cif }} · <span class="capitalize">{{ t.platform }}</span> · {{ t.category }} / {{ t.title }}
+        @if (t.errorCode) {
+          · <span class="rounded-[6px] bg-page px-1.5 py-0.5 font-mono text-[10px] text-ink-2">{{ t.errorCode }}</span>
+        }
+      </p>
+    </div>
+
+    @if (sla(); as s) {
+      <section class="h-fit rounded-[20px] bg-white p-5 shadow-card" aria-label="SLA">
+        <div class="mb-3 flex items-center justify-between text-xs">
+          <span class="text-ink-3">SLA · {{ t.priority | titlecase }} · {{ s.hours }}h</span>
+        </div>
+        <ds-sla-meter class="w-full" [state]="s.state" [label]="s.label" [progress]="s.progress" />
+        <p class="mt-3 text-xs text-ink-3">
+          @if (s.state === 'paused') {
+            Paused while the incident is open.
+          } @else {
+            Stops when you resolve, not when SRE does.
+          }
+        </p>
+      </section>
+    }
+  </div>
+
+  <!-- Next step -->
+  <section class="mt-6 flex flex-wrap items-center gap-4 rounded-[20px] border p-5"
+           [class.border-sre/20]="t.status === 'with-sre'" [class.bg-sre-tint]="t.status === 'with-sre'"
+           [class.border-warning/30]="t.status === 'fixed'" [class.bg-warning-tint]="t.status === 'fixed'"
+           [class.border-success/20]="t.status === 'resolved' || t.status === 'closed'"
+           [class.bg-success-tint]="t.status === 'resolved' || t.status === 'closed'"
+           [class.border-brand/20]="t.status === 'new' || t.status === 'open'"
+           [class.bg-blue-50]="t.status === 'new' || t.status === 'open'">
+    <div class="min-w-0 flex-1">
+      <p class="ds-eyebrow text-ink-3">Next step</p>
+      @switch (t.status) {
+        @case ('new') {
+          <b class="text-ink">Start working on it</b>
+          <p class="mt-1 text-xs text-ink-2">Read what was reported and the customer's recent activity, then work the issue or escalate.</p>
+        }
+        @case ('open') {
+          <b class="text-ink">Resolve, or escalate to SRE</b>
+          <p class="mt-1 text-xs text-ink-2">Escalating creates an Azure DevOps work item. You keep the ticket and the customer.</p>
+        }
+        @case ('with-sre') {
+          <b class="text-ink">Ask SRE for update</b>
+          <p class="mt-1 text-xs text-ink-2">
+            SRE is working {{ t.adoItem }}. Asking posts a comment on the work item and notifies your Team Leader. Limited to once an hour.
+            @if (t.lastSreAskAt) {
+              <br />Asked at {{ t.lastSreAskAt | date: 'HH:mm' }} · you can ask again at {{ tickets.nextAskAt(t) | date: 'HH:mm' }}.
+            }
+          </p>
+        }
+        @case ('fixed') {
+          <b class="text-ink">SRE marked it fixed — confirm with the customer</b>
+          <p class="mt-1 text-xs text-ink-2">Ask the customer to try again while you are on the call.</p>
+        }
+        @default {
+          <b class="text-ink">Resolved {{ t.resolvedAt | date: 'd MMM, HH:mm' }}</b>
+          <p class="mt-1 text-xs text-ink-2">If the customer calls back with the same problem, reopen it instead of creating a new ticket.</p>
+        }
+      }
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      @switch (t.status) {
+        @case ('new') {
+          <button type="button" (click)="start()" class="h-10 rounded-control bg-brand px-5 text-xs font-bold text-white hover:bg-brand-hover">Start</button>
+        }
+        @case ('open') {
+          <button type="button" (click)="escalate()" class="h-10 rounded-control border border-line-2 bg-white px-4 text-xs font-bold text-ink hover:bg-page">Escalate to SRE</button>
+          <button type="button" (click)="resolve()" class="h-10 rounded-control bg-brand px-5 text-xs font-bold text-white hover:bg-brand-hover">Resolve</button>
+        }
+        @case ('with-sre') {
+          <button type="button" (click)="askSre()" [disabled]="!tickets.canAskSre(t)"
+                  class="h-10 rounded-control bg-brand px-5 text-xs font-bold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50">
+            Ask SRE for update
+          </button>
+        }
+        @case ('fixed') {
+          <button type="button" (click)="stillNotWorking()" class="h-10 rounded-control border border-line-2 bg-white px-4 text-xs font-bold text-ink hover:bg-page">Still not working</button>
+          <button type="button" (click)="resolve()" class="h-10 rounded-control bg-brand px-5 text-xs font-bold text-white hover:bg-brand-hover">Resolve</button>
+        }
+        @case ('resolved') {
+          <button type="button" (click)="reopen()" class="h-10 rounded-control border border-line-2 bg-white px-4 text-xs font-bold text-ink hover:bg-page">Reopen</button>
+        }
+      }
+    </div>
+  </section>
+
+  <!-- Tabs -->
+  <div class="mt-6 flex gap-1 border-b border-line-2 text-sm font-bold" role="tablist">
+    @for (tb of [
+      { id: 'work', label: 'Work', count: null },
+      { id: 'timeline', label: 'Timeline', count: t.timeline.length },
+      { id: 'contact', label: 'Customer contact', count: t.notes.length }
+    ]; track tb.id) {
+      <button type="button" role="tab" [attr.aria-selected]="tab() === tb.id" (click)="tab.set($any(tb.id))"
+              class="-mb-px flex items-center gap-1.5 border-b-2 px-4 py-3"
+              [class.border-brand]="tab() === tb.id" [class.text-brand]="tab() === tb.id"
+              [class.border-transparent]="tab() !== tb.id" [class.text-ink-3]="tab() !== tb.id">
+        {{ tb.label }}
+        @if (tb.count !== null) {
+          <span class="rounded-full bg-page px-1.5 text-[11px] text-ink-3">{{ tb.count }}</span>
+        }
+      </button>
+    }
+  </div>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div class="flex flex-col gap-6">
+      @switch (tab()) {
+        @case ('work') {
+          <!-- SRE side -->
+          <section class="rounded-[20px] bg-white p-5 shadow-card">
+            <div class="flex items-center justify-between">
+              <h2 class="text-[15px] font-bold text-ink">SRE side <span class="text-xs font-normal text-ink-3">(read-only)</span></h2>
+              <span class="rounded-full border border-line-2 px-2 py-0.5 text-[11px] text-ink-3">Azure DevOps</span>
+            </div>
+
+            @if (t.adoItem) {
+              <ol class="mt-4 grid gap-2 sm:grid-cols-4" aria-label="SRE progress">
+                @for (step of steps(); track step.label; let i = $index) {
+                  <li class="flex items-center gap-2 rounded-[12px] border p-2.5 text-xs"
+                      [class.border-line-2]="step.state === 'todo'" [class.text-ink-3]="step.state === 'todo'"
+                      [class.border-sre/30]="step.state === 'current'" [class.bg-sre-tint]="step.state === 'current'" [class.text-sre]="step.state === 'current'"
+                      [class.border-success/20]="step.state === 'done'" [class.text-success]="step.state === 'done'"
+                      [attr.aria-current]="step.state === 'current' ? 'step' : null">
+                    <span class="grid size-6 shrink-0 place-items-center rounded-full bg-white font-bold">
+                      @if (step.state === 'done') { <i class="pi pi-check text-[10px]"></i> } @else { {{ i + 1 }} }
+                    </span>
+                    <span class="font-semibold">{{ step.label }}</span>
+                  </li>
+                }
+              </ol>
+
+              <dl class="mt-4 grid grid-cols-[110px_1fr] gap-x-3 gap-y-3 text-xs">
+                <dt class="text-ink-3">Work item</dt>
+                <dd class="flex items-center gap-2"><b class="text-ink">{{ t.adoItem }}</b> <ds-status-pill tone="success">synced</ds-status-pill></dd>
+                <dt class="text-ink-3">SRE owner</dt>
+                <dd class="text-ink">{{ t.sreOwner }} (Azure)</dd>
+                <dt class="text-ink-3">Escalation</dt>
+                <dd class="text-ink">
+                  @if (t.origin === 'monitor') { Auto-escalated by rule {{ t.errorCode }} } @else { Escalated by the agent }
+                </dd>
+              </dl>
+              <p class="mt-4 text-xs text-ink-3">
+                You can't change the technical state from the portal. “Still not working” posts a reopen comment to the work item;
+                “Ask SRE for update” posts a comment and notifies your Team Leader.
+              </p>
+            } @else {
+              <p class="mt-4 rounded-[14px] bg-page p-4 text-sm text-ink-3">Not escalated. SRE is not involved in this ticket.</p>
+            }
+          </section>
+
+          <!-- Contact note -->
+          <section class="rounded-[20px] bg-white p-5 shadow-card">
+            <h2 class="text-[15px] font-bold text-ink">Log what you told the customer</h2>
+            <p class="mt-1 text-xs text-ink-3">Goes on the ticket and into the audit log.</p>
+            <label for="note" class="sr-only">Note</label>
+            <textarea id="note" rows="3" [formControl]="note" (input)="noteSaved.set(false)"
+                      [placeholder]="notePlaceholder()"
+                      class="mt-3 w-full rounded-control border bg-white p-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand/15"
+                      [class.border-line-2]="!noteInvalid()" [class.border-danger]="noteInvalid()"
+                      [attr.aria-invalid]="noteInvalid()" aria-describedby="note-msg"></textarea>
+            <div class="mt-2 flex items-center gap-3">
+              <button type="button" (click)="addNote()" class="h-10 rounded-control bg-brand px-5 text-xs font-bold text-white hover:bg-brand-hover">
+                Add note
+              </button>
+              <span id="note-msg" class="text-xs" aria-live="polite">
+                @if (noteInvalid()) {
+                  <span class="text-danger">Write at least 5 characters.</span>
+                } @else if (noteSaved()) {
+                  <span class="text-success">Note added to Customer contact.</span>
+                }
+              </span>
+            </div>
+          </section>
+        }
+
+        @case ('timeline') {
+          <section class="rounded-[20px] bg-white p-5 shadow-card">
+            <h2 class="text-[15px] font-bold text-ink">Timeline</h2>
+            <ol class="mt-4 border-s-2 border-line-2 ps-5">
+              @for (e of timeline(); track $index) {
+                <li class="relative pb-5 text-xs last:pb-0">
+                  <span class="absolute -start-[27px] top-0.5 size-3 rounded-full border-2 border-white bg-brand"></span>
+                  <b class="text-ink">{{ e.text }}</b>
+                  <div class="mt-0.5 text-ink-3">{{ e.actor }} · {{ e.at | date: 'd MMM, HH:mm' }}</div>
+                </li>
+              }
+            </ol>
+          </section>
+        }
+
+        @case ('contact') {
+          <section class="rounded-[20px] bg-white p-5 shadow-card">
+            <h2 class="text-[15px] font-bold text-ink">Customer contact</h2>
+            <ul class="mt-3">
+              @for (n of t.notes; track $index) {
+                <li class="border-t border-line-2 py-3 text-sm first:border-0">
+                  <p class="text-ink">{{ n.text }}</p>
+                  <p class="mt-1 text-xs text-ink-3">{{ n.author }} · {{ n.at | date: 'd MMM, HH:mm' }}</p>
+                </li>
+              } @empty {
+                <li class="py-6 text-center text-sm text-ink-3">No notes yet. Add one from the Work tab.</li>
+              }
+            </ul>
+          </section>
+        }
+      }
+    </div>
+
+    <!-- Side -->
+    <aside class="flex flex-col gap-6">
+      <section class="rounded-[20px] bg-white p-5 shadow-card">
+        <h2 class="text-[15px] font-bold text-ink">Details</h2>
+        <dl class="mt-4 grid grid-cols-[100px_1fr] gap-x-3 gap-y-3 text-xs">
+          <dt class="text-ink-3">Opened</dt>
+          <dd class="text-ink">{{ t.createdAt | date: 'd MMM, HH:mm' }}</dd>
+          <dt class="text-ink-3">Origin</dt>
+          <dd class="text-ink">{{ t.origin === 'monitor' ? 'Monitor job' : 'Agent' }}</dd>
+          <dt class="text-ink-3">Priority</dt>
+          <dd class="flex flex-wrap items-center gap-1.5">
+            <ds-priority [level]="t.priority" />
+            @if (t.origin === 'monitor') { <span class="text-ink-3">from rule {{ t.errorCode }}</span> }
+          </dd>
+          @if (t.transactionRef) {
+            <dt class="text-ink-3">Transaction</dt>
+            <dd class="font-mono text-ink">{{ t.transactionRef }}</dd>
+          }
+          <dt class="text-ink-3">Reported</dt>
+          <dd class="text-ink">{{ t.report ?? 'Detected by log monitoring: ' + t.errorCode }}</dd>
+          <dt class="text-ink-3">Device</dt>
+          <dd class="text-ink">{{ t.device ?? c?.device }}</dd>
+        </dl>
+      </section>
+
+      <section class="rounded-[20px] bg-white p-5 shadow-card">
+        <h2 class="text-[15px] font-bold text-ink">Recent failed activity</h2>
+        <ul class="mt-3 flex flex-col gap-3 text-xs">
+          @for (e of failedActivity(); track $index) {
+            <li class="flex items-start gap-2">
+              <span class="mt-1 size-2 shrink-0 rounded-full bg-danger"></span>
+              <div>
+                <b class="font-mono text-ink">{{ e.at | date: 'HH:mm' }}</b>
+                <span class="text-ink"> {{ e.title }}</span>
+                @if (e.errorCode) {
+                  <span class="ms-1 rounded-[6px] bg-danger-tint px-1.5 py-0.5 font-mono text-[10px] text-danger">{{ e.errorCode }}</span>
+                }
+              </div>
+            </li>
+          } @empty {
+            <li class="text-ink-3">No failed activity.</li>
+          }
+        </ul>
+      </section>
+    </aside>
+  </div>
+}

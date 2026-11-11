@@ -1,0 +1,114 @@
+/*
+ * Digital Support Portal — design tokens (source of truth: DSP v4 redesign PDF).
+ * [PDF]  = value printed in the PDF.
+ * [INF]  = inferred from the PDF visuals (no exact value given).
+ * Project scope: light mode + English (LTR) only.
+ */
+:root {
+  /* Brand blue ramp */
+  --ds-blue-50: #f3f7fe; /* [PDF] */
+  --ds-blue-100: #e8effc; /* [PDF] tint */
+  --ds-blue-200: #c9daf6; /* [PDF] line */
+  --ds-blue-300: #9dbbee; /* [PDF] */
+  --ds-blue-400: #5f8fe0; /* [INF] ramp step for PrimeNG */
+  --ds-blue-500: #2a68cf; /* [INF] ramp step for PrimeNG */
+  --ds-blue-600: #0047ba; /* [PDF] brand */
+  --ds-blue-700: #00399a; /* [PDF] hover */
+  --ds-blue-800: #002b70; /* [PDF] ink */
+  --ds-blue-900: #001f52; /* [PDF] */
+  --ds-blue-950: #001538; /* [INF] */
+
+  /* Neutrals */
+  --ds-ink: #0f1b33; /* [PDF] */
+  --ds-ink-2: #44506a; /* [PDF] 8.1:1 */
+  --ds-ink-3: #5e6a82; /* [PDF] 5.4:1 caption */
+  --ds-line-2: #d5ddea; /* [PDF] */
+  --ds-line: #e6ebf3; /* [PDF] */
+  --ds-page: #f3f6fc; /* [PDF] */
+  --ds-sunk: #f7f9fd; /* [PDF] */
+  --ds-card: #ffffff; /* [PDF] */
+
+  /* State colours: text on its own tint (all [PDF]) */
+  --ds-success-fg: #0e6b3a;
+  --ds-success-bg: #e7f6ee;
+  --ds-warning-fg: #8a4b08;
+  --ds-warning-bg: #fff3e0;
+  --ds-danger-fg: #b42318;
+  --ds-danger-bg: #fdecea;
+  --ds-sre-fg: #6b2fa8;
+  --ds-sre-bg: #f3ecfb;
+  --ds-info-fg: #00399a;
+  --ds-info-bg: #e8effc;
+
+  /* Solid state fills used by meters / dots / toasts [INF] */
+  --ds-success-solid: #0e6b3a;
+  --ds-warning-solid: #c27a10;
+  --ds-danger-solid: #b42318;
+  --ds-sre-solid: #6b2fa8;
+  --ds-toast-bg: #0f1b33;
+  --ds-toast-danger-bg: #7a1a12;
+
+  /* Semantic aliases (use these in components) */
+  --ds-color-brand: var(--ds-blue-600);
+  --ds-color-brand-hover: var(--ds-blue-700);
+  --ds-color-text: var(--ds-ink);
+  --ds-color-text-muted: var(--ds-ink-2);
+  --ds-color-text-caption: var(--ds-ink-3);
+  --ds-color-border: var(--ds-line);
+  --ds-color-border-strong: var(--ds-line-2);
+  --ds-color-focus: var(--ds-blue-600);
+  --ds-color-page: var(--ds-page);
+  --ds-color-surface: var(--ds-card);
+  --ds-color-surface-sunk: var(--ds-sunk);
+
+  /* Typography [PDF] */
+  --ds-font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ds-font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Radius [PDF] */
+  --ds-radius-code: 8px;
+  --ds-radius-control: 12px;
+  --ds-radius-inset: 16px;
+  --ds-radius-card: 20px;
+  --ds-radius-modal: 24px;
+  --ds-radius-pill: 999px;
+
+  /* Spacing, 4px base [PDF] */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-8: 32px;
+  --ds-space-12: 48px;
+
+  /* Elevation, 3 levels (levels [PDF], values [INF]) */
+  --ds-shadow-1: 0 1px 2px rgb(15 27 51 / 0.05); /* bars */
+  --ds-shadow-2: 0 2px 4px rgb(15 27 51 / 0.04), 0 8px 24px rgb(15 27 51 / 0.06); /* cards */
+  --ds-shadow-3: 0 8px 16px rgb(15 27 51 / 0.08), 0 24px 56px rgb(15 27 51 / 0.14); /* modals */
+
+  /* Sizing */
+  --ds-target-min: 44px; /* [PDF] minimum tap target */
+  --ds-focus-ring: 0 0 0 3px rgb(0 71 186 / 0.25); /* [INF] */
+
+  /* Navigation rail [PDF] */
+  --ds-rail-width: 264px;
+  --ds-rail-width-compact: 84px;
+  --ds-rail-breakpoint: 1180px;
+  --ds-rail-radius: 24px;
+  --ds-rail-tab-radius: 16px; /* tab outer radius */
+  --ds-rail-curve: 12px; /* rounded blue corners above/below the active tab */
+  --ds-rail-tab-bg: var(--ds-page); /* content surface the tab flows into */
+  --ds-rail-edge-gap: 16px;
+  --ds-rail-text: #e3ecfb;
+  --ds-rail-hover: rgb(255 255 255 / 0.1);
+  --ds-rail-hover-duration: 250ms;
+  --ds-rail-tab-duration: 380ms;
+
+  /* Bottom navigation (phone) [PDF] */
+  --ds-bottom-nav-breakpoint: 768px; /* below this the bottom nav replaces the rail */
+  --ds-bottom-nav-height: 68px;
+  --ds-bottom-nav-gap: 16px; /* distance from the screen sides */
+  --ds-bar-edge-y: 20px; /* distance of the app bar from the top and the bottom nav from the bottom */
+}

@@ -1,0 +1,49 @@
+/* Exposes the design tokens as Tailwind utilities: bg-brand, text-ink-2, rounded-card, shadow-card... */
+@theme inline {
+  --color-brand: var(--ds-blue-600);
+  --color-brand-hover: var(--ds-blue-700);
+  --color-blue-50: var(--ds-blue-50);
+  --color-blue-100: var(--ds-blue-100);
+  --color-blue-200: var(--ds-blue-200);
+  --color-blue-300: var(--ds-blue-300);
+  --color-blue-400: var(--ds-blue-400);
+  --color-blue-500: var(--ds-blue-500);
+  --color-blue-600: var(--ds-blue-600);
+  --color-blue-700: var(--ds-blue-700);
+  --color-blue-800: var(--ds-blue-800);
+  --color-blue-900: var(--ds-blue-900);
+  --color-blue-950: var(--ds-blue-950);
+
+  --color-ink: var(--ds-ink);
+  --color-ink-2: var(--ds-ink-2);
+  --color-ink-3: var(--ds-ink-3);
+  --color-line: var(--ds-line);
+  --color-line-2: var(--ds-line-2);
+  --color-page: var(--ds-page);
+  --color-sunk: var(--ds-sunk);
+  --color-card: var(--ds-card);
+
+  --color-success: var(--ds-success-fg);
+  --color-success-tint: var(--ds-success-bg);
+  --color-warning: var(--ds-warning-fg);
+  --color-warning-tint: var(--ds-warning-bg);
+  --color-danger: var(--ds-danger-fg);
+  --color-danger-tint: var(--ds-danger-bg);
+  --color-sre: var(--ds-sre-fg);
+  --color-sre-tint: var(--ds-sre-bg);
+  --color-info: var(--ds-info-fg);
+  --color-info-tint: var(--ds-info-bg);
+
+  --font-sans: var(--ds-font-sans);
+  --font-mono: var(--ds-font-mono);
+
+  --radius-code: var(--ds-radius-code);
+  --radius-control: var(--ds-radius-control);
+  --radius-inset: var(--ds-radius-inset);
+  --radius-card: var(--ds-radius-card);
+  --radius-modal: var(--ds-radius-modal);
+
+  --shadow-bar: var(--ds-shadow-1);
+  --shadow-card: var(--ds-shadow-2);
+  --shadow-modal: var(--ds-shadow-3);
+}

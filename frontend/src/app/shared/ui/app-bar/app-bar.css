@@ -1,0 +1,129 @@
+:host {
+  position: sticky;
+  top: var(--ds-bar-edge-y);
+  z-index: 20;
+  display: block;
+  margin-inline: var(--ds-bottom-nav-gap);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  border-radius: 28px;
+  background: var(--ds-color-brand);
+  box-shadow: var(--ds-shadow-3);
+  color: #fff;
+  font-family: var(--ds-font-sans);
+}
+
+.tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--ds-target-min);
+  height: var(--ds-target-min);
+  border: 0;
+  border-radius: var(--ds-radius-control);
+  background: rgb(255 255 255 / 0.14);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 250ms ease;
+}
+.tile:hover {
+  background: rgb(255 255 255 / 0.24);
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ds-radius-control);
+  background: #fff;
+  color: var(--ds-color-brand);
+  font-size: 18px;
+}
+
+.tile i,
+.logo i {
+  font-size: inherit;
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  text-align: center;
+}
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
+}
+.sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ds-rail-text);
+  opacity: 0.85;
+}
+
+.badge {
+  position: absolute;
+  top: -4px;
+  inset-inline-end: -4px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-danger-solid);
+  box-shadow: 0 0 0 2px #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--ds-target-min);
+  height: var(--ds-target-min);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ds-blue-800);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tile:focus-visible,
+.avatar:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile {
+    transition: none;
+  }
+}

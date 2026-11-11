@@ -1,0 +1,47 @@
+<section aria-label="About the portal"
+         class="relative h-full min-h-screen overflow-hidden bg-brand text-white
+                flex flex-col px-14 py-12 lg:rounded-s-[32px]">
+
+  
+  <div aria-hidden="true" class="pointer-events-none absolute -bottom-[260px] -start-[200px] size-[560px] rotate-45 rounded-[120px] bg-[#1556C4]"></div>
+  <div aria-hidden="true" class="pointer-events-none absolute -bottom-[200px] -start-[150px] size-[380px] rotate-45 rounded-[90px] bg-[#2563CC]"></div>
+  <div aria-hidden="true" class="pointer-events-none absolute -top-[110px] -end-[110px] size-[340px] rounded-full border-[1.5px] border-white/15"></div>
+  <div aria-hidden="true" class="pointer-events-none absolute -top-[20px] -end-[20px] size-[200px] rounded-full border-[1.5px] border-white/10"></div>
+
+ 
+  <div class="relative flex items-center gap-3">
+    <div class="size-11 rounded-[14px] bg-white text-brand flex items-center justify-center shadow-[0_6px_16px_-8px_rgba(0,20,60,.5)]">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" class="size-6">
+        <path d="M4 13a8 8 0 0 1 16 0"/>
+        <rect x="2.5" y="12.5" width="4" height="6" rx="2"/>
+        <rect x="17.5" y="12.5" width="4" height="6" rx="2"/>
+        <path d="M19.5 18.5c0 1.7-2 2.5-5 2.5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="text-base font-extrabold leading-5">Digital Support</div>
+      <div class="text-[12.5px] text-blue-200">Mobile &amp; web banking</div>
+    </div>
+  </div>
+
+
+  <div class="relative my-auto max-w-[440px] py-12">
+    <div class="text-xs font-bold uppercase tracking-[.1em] text-blue-200">Digital Support Portal</div>
+    <h2 class="mt-3 text-[40px] leading-[48px] font-extrabold tracking-tight">
+      One calm workspace for every caller.
+    </h2>
+
+    <ul class="mt-9 flex flex-col gap-4">
+      @for (p of points; track p.text) {
+        <li class="flex items-start gap-3.5 text-[15px] leading-[23px] text-blue-100">
+          <span class="size-9 shrink-0 rounded-xl bg-white/15 flex items-center justify-center">
+            <i class="pi {{ p.icon }} text-sm text-white"></i>
+          </span>
+          <span class="pt-1.5">{{ p.text }}</span>
+        </li>
+      }
+    </ul>
+  </div>
+
+</section>

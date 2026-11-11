@@ -1,0 +1,26 @@
+html {
+  font-family: var(--ds-font-sans);
+  color: var(--ds-color-text);
+  background: var(--ds-color-page);
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  margin: 0;
+  background: var(--ds-color-page);
+  font-size: 14px;
+  line-height: 21px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ds-color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

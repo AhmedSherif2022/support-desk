@@ -1,0 +1,142 @@
+:host {
+  position: fixed;
+  inset-inline: var(--ds-bottom-nav-gap);
+  bottom: calc(var(--ds-bar-edge-y) + env(safe-area-inset-bottom));
+  z-index: 20;
+  display: block;
+}
+
+.bar {
+  display: flex;
+  gap: 4px;
+  height: var(--ds-bottom-nav-height);
+  padding: 8px 12px;
+  box-sizing: border-box;
+  border-radius: 28px;
+  /* Clips the active tab's concave curves, so they can't poke out of the rounded bar when the first or last tab is active. */
+  overflow: hidden;
+  background: var(--ds-color-brand);
+  box-shadow: var(--ds-shadow-3);
+  font-family: var(--ds-font-sans);
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: var(--ds-target-min);
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  cursor: pointer;
+  transition: background 250ms ease, color 250ms ease;
+}
+.tab:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+/* Active tab: reaches the bar's top edge and opens into the page above */
+.tab.active {
+  z-index: 1;
+  margin-top: -8px;               /* = bar padding-top, so the tab touches the top edge */
+  padding-top: 8px;               /* keeps the icon and label in the same place */
+  border-radius: 0 0 20px 20px;   /* rounded at the bottom only, open at the top */
+  background: var(--ds-page);
+  color: var(--ds-blue-800);
+  font-weight: 700;
+}
+
+/* Concave curves: the blue bar gets rounded corners left and right of the tab */
+.tab.active::before,
+.tab.active::after {
+  content: '';
+  position: absolute;
+  top: 0;                          /* the bar's top edge */
+  width: var(--ds-rail-curve);
+  height: var(--ds-rail-curve);
+  pointer-events: none;
+}
+.tab.active::before {
+  right: 100%;
+  background: radial-gradient(
+    circle at 0 100%,
+    var(--ds-color-brand) calc(var(--ds-rail-curve) - 0.5px),
+    var(--ds-page) var(--ds-rail-curve)
+  );
+}
+.tab.active::after {
+  left: 100%;
+  background: radial-gradient(
+    circle at 100% 100%,
+    var(--ds-color-brand) calc(var(--ds-rail-curve) - 0.5px),
+    var(--ds-page) var(--ds-rail-curve)
+  );
+}
+/* First/last tab: there's no room outside it for a curve (the bar padding is smaller), so skip that side. */
+.tab.active:first-child::before,
+.tab.active:last-child::after {
+  display: none;
+}
+.tab.active:focus-visible {
+  outline-color: var(--ds-color-focus);
+  outline-offset: -2px;
+}
+
+.icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: 24px;
+}
+.icon i {
+  font-size: inherit;
+}
+.label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  position: absolute;
+  top: -6px;
+  inset-inline-start: 14px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: var(--ds-radius-pill);
+  background: rgb(255 255 255 / 0.28);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.tab.active .badge {
+  background: var(--ds-blue-800);
+}
+.badge.action {
+  background: var(--ds-danger-solid);
+  box-shadow: 0 0 0 2px #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition: none;
+  }
+}

@@ -1,0 +1,328 @@
+:host {
+  display: block;
+  width: var(--ds-rail-width);
+  flex: none;
+  transition: width 250ms ease;
+}
+:host(.compact) {
+  width: var(--ds-rail-width-compact);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px 12px;
+  box-sizing: border-box;
+  background: var(--ds-color-brand);
+  border-top-right-radius: var(--ds-rail-radius);
+  border-bottom-right-radius: var(--ds-rail-radius);
+  box-shadow: var(--ds-shadow-2);
+  color: var(--ds-rail-text);
+  font-family: var(--ds-font-sans);
+  /* The active tab pokes out of the rail into the content. */
+  overflow: visible;
+}
+
+/* Brand header */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 12px;
+}
+.logo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--ds-radius-control);
+  background: #fff;
+  color: var(--ds-color-brand);
+  font-size: 20px;
+}
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.brand-title {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 20px;
+}
+.brand-sub {
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ds-rail-text);
+  opacity: 0.85;
+}
+.rail-toggle {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin-inline-start: auto;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-radius: var(--ds-radius-control);
+  background: rgb(255 255 255 / 0.1);
+  color: #fff;
+  cursor: pointer;
+  transition: background var(--ds-rail-hover-duration) ease;
+}
+.rail-toggle:hover {
+  background: rgb(255 255 255 / 0.2);
+}
+
+.section {
+  margin: 8px 8px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-rail-text);
+  opacity: 0.85;
+}
+
+/* Items */
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.item {
+  position: relative;
+}
+.link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--ds-target-min);
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--ds-radius-control);
+  background: transparent;
+  color: var(--ds-rail-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--ds-rail-hover-duration) ease;
+}
+.link:hover {
+  background: var(--ds-rail-hover);
+}
+.link:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  font-size: 18px;
+}
+.icon i,
+.logo i {
+  font-size: inherit;
+}
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Count badges */
+.badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: var(--ds-radius-pill);
+  background: rgb(255 255 255 / 0.22);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.badge.action {
+  background: var(--ds-danger-fg);
+  box-shadow: 0 0 0 2px #fff;
+}
+.badge.corner {
+  position: absolute;
+  top: -8px;
+  inset-inline-end: -10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 10px;
+}
+.badge.corner:not(.action) {
+  background: var(--ds-blue-800);
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Active item: cut-out tab that bridges the gap into the content */
+.item.active {
+  z-index: 1;
+}
+.item.active .link {
+  /* Reach past the rail's edge: padding of the rail (12px) + the gap to the content. */
+  margin-inline: -4px calc(-12px - var(--ds-rail-edge-gap));
+  width: calc(100% + 4px + 12px + var(--ds-rail-edge-gap));
+  padding-inline: 16px calc(12px + var(--ds-rail-edge-gap));
+  border-radius: var(--ds-rail-tab-radius) 0 0 var(--ds-rail-tab-radius);
+  background: var(--ds-rail-tab-bg);
+  color: var(--ds-color-brand);
+  font-weight: 700;
+  animation: ds-tab-in var(--ds-rail-tab-duration) ease-out;
+}
+.item.active .link:hover {
+  background: var(--ds-rail-tab-bg);
+}
+.item.active .link:focus-visible {
+  outline-color: var(--ds-color-focus);
+  outline-offset: -2px;
+}
+.item.active .icon {
+  width: 32px;
+  height: 32px;
+  margin: -4px;
+  border-radius: 10px;
+  background: var(--ds-color-brand);
+  color: #fff;
+}
+.item.active .badge {
+  background: var(--ds-color-brand);
+}
+.item.active .badge.action {
+  background: var(--ds-danger-fg);
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Concave curves: the blue rail gets rounded corners above and below the tab */
+.item.active::before,
+.item.active::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: -12px; /* the rail edge */
+  width: var(--ds-rail-curve);
+  height: var(--ds-rail-curve);
+  pointer-events: none;
+}
+.item.active::before {
+  bottom: 100%;
+  background: radial-gradient(
+    circle at 0 0,
+    var(--ds-color-brand) calc(var(--ds-rail-curve) - 0.5px),
+    var(--ds-rail-tab-bg) var(--ds-rail-curve)
+  );
+}
+.item.active::after {
+  top: 100%;
+  background: radial-gradient(
+    circle at 0 100%,
+    var(--ds-color-brand) calc(var(--ds-rail-curve) - 0.5px),
+    var(--ds-rail-tab-bg) var(--ds-rail-curve)
+  );
+}
+
+@keyframes ds-tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* User card */
+.user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+  padding: 10px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: var(--ds-radius-inset);
+  background: rgb(255 255 255 / 0.1);
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ds-color-brand);
+  font-size: 12px;
+  font-weight: 800;
+}
+.user-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.user-name {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+}
+.user-role {
+  font-size: 12px;
+  line-height: 16px;
+  opacity: 0.85;
+}
+
+/* Compact rail (84px): icons only */
+:host(.compact) .rail {
+  align-items: stretch;
+  padding-inline: 12px;
+}
+:host(.compact) .brand {
+  flex-direction: column;
+  padding-inline: 0;
+}
+:host(.compact) .rail-toggle {
+  margin-inline-start: 0;
+}
+:host(.compact) .icon {
+  font-size: 22px;
+}
+:host(.compact) .icon {
+  font-size: 22px;
+}
+:host(.compact) .link {
+  justify-content: center;
+  padding-inline: 0;
+}
+:host(.compact) .item.active .link {
+  justify-content: flex-start;
+  padding-inline: 20px calc(12px + var(--ds-rail-edge-gap));
+}
+:host(.compact) .user {
+  justify-content: center;
+  padding: 8px;
+}

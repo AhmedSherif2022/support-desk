@@ -1,0 +1,52 @@
+<!-- Overlay: a click outside the card closes the popup -->
+<dialog class="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" (click)="closed.emit()">
+
+  <section role="dialog" aria-modal="true" aria-labelledby="verify-title" aria-describedby="verify-desc"
+           class="w-full max-w-110 rounded-[20px] bg-white p-5 shadow-modal"
+           (click)="$event.stopPropagation()">
+
+    <h2 id="verify-title" class="text-[15px] font-bold text-ink">Verify the caller</h2>
+    <p id="verify-desc" class="mt-1 text-xs text-ink-3">
+      Nothing about {{ firstName() }} opens until two checks pass. The result is written to the audit log.
+    </p>
+
+    <div class="mt-4 rounded-[14px] border border-line-2 bg-blue-50/50 p-4">
+      <b class="text-xs text-brand">{{ customer().name }}</b>
+      <p class="mt-2 text-xs text-ink-3">
+        CIF {{ customer().cif }} · {{ customer().segment }} · {{ checkedCount() }} of 3 checked
+      </p>
+    </div>
+
+    <div class="mt-3 flex flex-col gap-2">
+      <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-xs text-ink"
+             [class.border-line-2]="!nameDob()" [class.border-brand/30]="nameDob()" [class.bg-blue-50]="nameDob()">
+        <input type="checkbox" class="size-4 accent-brand" [checked]="nameDob()" (change)="nameDob.set(!nameDob())" />
+        Full name and date of birth match
+      </label>
+
+      <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-xs text-ink"
+             [class.border-line-2]="!city()" [class.border-brand/30]="city()" [class.bg-blue-50]="city()">
+        <input type="checkbox" class="size-4 accent-brand" [checked]="city()" (change)="city.set(!city())" />
+        City of residence matches
+      </label>
+
+      <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-xs text-ink"
+             [class.border-line-2]="!otp()" [class.border-brand/30]="otp()" [class.bg-blue-50]="otp()">
+        <input type="checkbox" class="size-4 accent-brand" [checked]="otp()" (change)="otp.set(!otp())" />
+        One-time code sent to {{ maskedMobile() }} matched
+      </label>
+    </div>
+
+    <div class="mt-4 flex gap-2">
+      <button type="button" (click)="failed.emit(customer())"
+              class="h-10 rounded-control border border-line-2 bg-white px-4 text-xs font-bold text-ink hover:bg-page">
+        Caller failed
+      </button>
+      <button type="button" [disabled]="!canConfirm()" (click)="confirmed.emit(customer())"
+              class="h-10 rounded-control bg-brand px-4 text-xs font-bold text-white hover:bg-brand-hover
+                     disabled:cursor-not-allowed disabled:opacity-50">
+        Confirm identity
+      </button>
+    </div>
+  </section>
+</dialog>

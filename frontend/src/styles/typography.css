@@ -1,0 +1,28 @@
+/* Type scale from the PDF: size/line-height · weight. */
+.ds-display { font-size: 36px; line-height: 44px; font-weight: 800; }
+.ds-h1 { font-size: 28px; line-height: 36px; font-weight: 700; }
+.ds-question { font-size: 24px; line-height: 33px; font-weight: 800; }
+.ds-h2 { font-size: 17px; line-height: 24px; font-weight: 700; }
+.ds-body { font-size: 14px; line-height: 21px; font-weight: 400; }
+.ds-caption { font-size: 12.5px; line-height: 18px; font-weight: 500; color: var(--ds-ink-3); }
+.ds-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ds-ink-3);
+}
+.ds-mono {
+  font-family: var(--ds-font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.ds-code {
+  font-family: var(--ds-font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius-code);
+  background: var(--ds-sunk);
+}

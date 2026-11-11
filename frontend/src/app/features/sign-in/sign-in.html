@@ -1,0 +1,89 @@
+<div class="min-h-screen grid lg:grid-cols-2 bg-white">
+
+    <section class="px-14 py-12 sm:px-12" aria-labelledby="signin-title">
+      <div class="w-full max-w-120 m-auto">
+
+        @if (lock(); as l) {
+          <!-- Locked: 5 wrong tries in 15 minutes -->
+          <div class="flex flex-col items-center text-center" role="status">
+            <ds-status-pill tone="warning" class="self-start">Locked</ds-status-pill>
+
+            <span class="mt-8 grid size-16 place-items-center rounded-[18px] bg-warning-tint text-warning">
+              <i class="pi pi-lock text-2xl"></i>
+            </span>
+
+            <h1 id="signin-title" class="mt-5 text-[26px] leading-8 font-extrabold tracking-tight text-ink">
+              Account locked for 15 minutes
+            </h1>
+            <p class="mt-2 text-[14.5px] leading-5.5 text-ink-3">
+              5 failed attempts in 15 minutes. You can try again at
+              <b class="text-ink">{{ l.until | date: 'HH:mm' }}</b>.
+            </p>
+
+            <div class="mt-7 flex w-full items-center gap-3">
+              <div class="h-2 flex-1 overflow-hidden rounded-full bg-line" role="progressbar"
+                   aria-label="Lock time passed" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="lockProgress()">
+                <div class="h-full rounded-full bg-[var(--ds-warning-solid)] transition-[width] duration-1000"
+                     [style.width.%]="lockProgress()"></div>
+              </div>
+              @if (lockLeft() > 0) {
+                <span class="font-mono text-sm font-bold text-warning" aria-live="off">{{ lockLabel() }} left</span>
+              } @else {
+                <span class="text-sm font-bold text-success">Unlocked</span>
+              }
+            </div>
+
+            <button type="button" (click)="backToSignIn()" [disabled]="lockLeft() > 0"
+                    class="mt-7 flex h-13 w-full items-center justify-center gap-2 rounded-[14px] bg-brand text-[15px] font-bold text-white
+                           shadow-card transition hover:bg-brand-hover
+                           disabled:cursor-not-allowed disabled:bg-page disabled:text-ink-3 disabled:shadow-none">
+              Sign in
+              @if (lockLeft() === 0) { <i class="pi pi-arrow-right"></i> }
+            </button>
+
+            <p class="mt-5 text-[12.5px] text-ink-3">
+              <span class="font-mono">USER_LOCKED</span> is written to the audit log.
+            </p>
+          </div>
+        } @else {
+
+        <div class="size-14 rounded-full bg-blue-100 flex items-center justify-center ring-8 ring-blue-50">
+          <div class="size-10 rounded-full bg-brand text-white flex items-center justify-center">
+            <i class="pi pi-user"></i>
+          </div>
+        </div>
+
+        @if (error() === 'invalid') {
+          <ds-status-pill tone="danger" class="mt-7">Invalid credentials</ds-status-pill>
+        } @else if (error() === 'expired') {
+          <ds-status-pill tone="info" class="mt-7">Session expired</ds-status-pill>
+        }
+  
+        <h1 id="signin-title" class="text-[30px] leading-9.5 font-extrabold tracking-tight text-ink"
+            [class.mt-3]="error() === 'invalid' || error() === 'expired'"
+            [class.mt-7]="error() !== 'invalid' && error() !== 'expired'">
+          Sign in
+        </h1>
+        <p class="mt-2 text-[14.5px] leading-5.5 text-ink-3">
+          Use your bank account. You land on your role's home — Home for agents, Review queue for Guide Admins.
+        </p>
+        
+  
+        <app-sign-in-form class="mt-8"
+          [loading]="loading()"
+          [error]="error()"
+          (submitted)="onSubmit($event)" />
+  
+        <p class="mt-8 flex items-center gap-2 text-[12.5px] text-ink-3">
+          <i class="pi pi-shield"></i>
+          Every sign-in is recorded in the audit log with your role and IP.
+        </p>
+        }
+      </div>
+    </section>
+
+  
+
+    <app-brand-panel class="hidden lg:block" />
+
+  </div>

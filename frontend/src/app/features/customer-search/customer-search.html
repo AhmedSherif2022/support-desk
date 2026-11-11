@@ -1,0 +1,98 @@
+<header class="mb-6 ">
+  <h1 class="text-[28px] font-extrabold tracking-tight text-ink">Customer search</h1>
+  <p class="mt-2 text-sm text-ink-3">Search by CIF or client name. Every search is audited.</p>
+</header>
+
+<!-- Search card -->
+<section class="rounded-[20px] bg-white p-6 shadow-card">
+  <form (submit)="$event.preventDefault(); onSearch()" class="flex flex-col gap-3">
+    <label for="q" class="text-[13px] font-bold text-ink">Search</label>
+    <input id="q" type="search" [formControl]="search" autocomplete="off"
+           placeholder="e.g. 123456 or Ahmed Ali"
+           class="h-12 w-full rounded-control border bg-white px-4 text-sm outline-none transition
+                  focus:border-brand focus:ring-4 focus:ring-brand/15"
+           [class.border-line-2]="!invalidQuery()"
+           [class.border-danger]="invalidQuery()"
+           [attr.aria-invalid]="invalidQuery()"
+           aria-describedby="q-hint" />
+
+    @if (invalidQuery()) {
+      <p id="q-hint" class="flex items-center gap-1.5 text-xs text-danger">
+        <i class="pi pi-info-circle text-[11px]"></i>
+        Search with the CIF (numbers only) or the client name (letters only).
+      </p>
+    }
+
+    <button type="submit"
+            class="h-11 w-fit rounded-control bg-brand px-8 text-sm font-bold text-white hover:bg-brand-hover">
+      Search
+    </button>
+  </form>
+
+  <div class="mt-4 flex flex-col gap-1 text-xs text-ink-3">
+    <span>Customer details stay hidden until the caller is verified.</span>
+  </div>
+</section>
+
+<!-- Results -->
+@if (query() && !invalidQuery()) {
+  <section class="mt-6 rounded-[20px] bg-white px-6 pb-2 pt-5 shadow-card">
+    <h2 class="text-[15px] font-bold text-ink">Results</h2>
+    <p class="mt-1 text-xs text-ink-3" aria-live="polite">
+      {{ results().length }} {{ results().length === 1 ? 'customer matches' : 'customers match' }}
+    </p>
+
+    @if (results().length === 0) {
+      <div class="flex flex-col items-center gap-2 py-10 text-center">
+        <span class="grid size-12 place-items-center rounded-full bg-page text-ink-3"><i class="pi pi-search"></i></span>
+        <b class="text-ink">No customer matches “{{ query() }}”.</b>
+        <span class="text-sm text-ink-3">Check the CIF or the spelling of the name.</span>
+      </div>
+    }
+
+    <ul class="mt-3">
+      @for (c of results(); track c.cif) {
+        <li class="grid items-center gap-3 border-t border-line-2 py-4
+                   md:grid-cols-[1.3fr_1fr_auto_auto] md:gap-6">
+          <div>
+            <b class="text-sm text-ink">{{ c.name }}</b>
+            <div class="text-xs text-ink">{{ c.segment }} · CIF {{ c.cif }}</div>
+          </div>
+
+          <span class="font-mono text-xs text-ink-3">
+            {{ isVerified(c) ? mask(c.mobile) : '•••••••••••' }}
+          </span>
+
+          <div class="flex flex-wrap items-center gap-1.5 text-xs">
+            <span class="rounded-full px-2.5 py-1 font-medium" [class]="statusStyle[c.mobileBanking]">Mobile {{ c.mobileBanking }}</span>
+            <span class="rounded-full px-2.5 py-1 font-medium" [class]="statusStyle[c.webBanking]">Web {{ c.webBanking }}</span>
+            <span class="rounded-full bg-page px-2.5 py-1 text-ink-3">{{ c.openTickets }} open</span>
+          </div>
+
+          <div class="md:text-end">
+            @if (isVerified(c)) {
+              <button type="button" (click)="open360(c)"
+                      class="h-10 rounded-control border border-line-2 bg-white px-6 text-xs font-bold text-ink hover:border-brand hover:text-brand">
+                Open 360
+              </button>
+            } @else {
+              <button type="button" (click)="verifying.set(c)"
+                      class="h-10 rounded-control bg-brand px-6 text-xs font-bold text-white hover:bg-brand-hover">
+                Verify caller
+              </button>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+}
+
+<!-- Verify popup -->
+@if (verifying(); as c) {
+  <app-verify-caller-dialog
+    [customer]="c"
+    (confirmed)="onConfirmed($event)"
+    (failed)="onFailed()"
+    (closed)="verifying.set(null)" />
+}
