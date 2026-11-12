@@ -44,8 +44,11 @@ public interface AuthApi
             + "PASSWORD_NOT_HASHED: a plain password outside the local profile",
             content = @Content(schema = @Schema(implementation = ApiError.class),
                     examples = @ExampleObject(name = "Plain password", value = "{\"code\":\"PASSWORD_NOT_HASHED\",\"message\":\"Send the password as its SHA-256 hash: 64 hex characters.\",\"fieldErrors\":{},\"path\":\"/api/auth/login\",\"timestamp\":\"2026-11-12T10:00:00Z\"}")))
-    @ApiResponse(responseCode = "401", description = "INVALID_CREDENTIALS: wrong username or password (same answer for both)",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "401",
+            description = "INVALID_CREDENTIALS: wrong username or password (same answer for both). attemptsLeft counts "
+                    + "down 4, 3, 2, 1; the 5th wrong password returns 423 instead. Unknown usernames count down too.",
+            content = @Content(schema = @Schema(implementation = ApiError.class),
+                    examples = @ExampleObject(name = "Wrong password", value = "{\"code\":\"INVALID_CREDENTIALS\",\"message\":\"Username or password is incorrect. 3 attempts left before the account is locked.\",\"fieldErrors\":{},\"path\":\"/api/auth/login\",\"timestamp\":\"2026-11-12T10:00:00Z\",\"attemptsLeft\":3}")))
     @ApiResponse(responseCode = "423",
             description = "ACCOUNT_LOCKED: 5 wrong passwords within 15 minutes lock the account for 15 minutes. "
                     + "Every login is refused until retryAt, even with the right password. "

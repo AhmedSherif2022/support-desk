@@ -6,6 +6,7 @@ import com.supportdesk.auth.enums.Role;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.repository.UserRepository;
 import com.supportdesk.auth.service.AuthService;
+import com.supportdesk.auth.service.DecoyLoginAttempts;
 import com.supportdesk.auth.service.JwtService;
 import com.supportdesk.auth.service.LoginAttemptService;
 import com.supportdesk.auth.service.PasswordDigest;
@@ -64,7 +65,7 @@ class JwtAuthenticationFilterTest
                         Duration.ofMinutes(15), Duration.ofMinutes(30), false), clock);
         authService = new AuthService(
                 userRepository, mock(PasswordEncoder.class), mock(LoginAttemptService.class), jwtService, refreshTokenService,
-                mock(AuditService.class), mock(PasswordDigest.class));
+                mock(AuditService.class), mock(PasswordDigest.class), mock(DecoyLoginAttempts.class));
         filter = new JwtAuthenticationFilter(jwtService, userRepository, clock);
 
         user = new User("agent", "hash", "Agent Smith", "agent@example.com", "+201000000000", Role.AGENT);

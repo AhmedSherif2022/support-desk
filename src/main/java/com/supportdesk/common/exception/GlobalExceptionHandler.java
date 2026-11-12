@@ -1,5 +1,6 @@
 package com.supportdesk.common.exception;
 import com.supportdesk.auth.exception.AccountLockedException;
+import com.supportdesk.auth.exception.InvalidCredentialsException;
 import com.supportdesk.common.enums.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +42,15 @@ public class GlobalExceptionHandler
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
                 .body(ApiError.retryLater(ex.getCode(), ex.getMessage(), request.getRequestURI(),
                         ex.getLockedUntil(), ex.getRetryAfterSeconds()));
+    }
+
+
+    // 401 from login with attemptsLeft, so the login screen can warn before the lock.
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiError> handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest request) {
+        return ResponseEntity
+                .status(ex.getStatus())
+                .body(ApiError.withAttemptsLeft(ex.getCode(), ex.getMessage(), request.getRequestURI(), ex.getAttemptsLeft()));
     }
 
 

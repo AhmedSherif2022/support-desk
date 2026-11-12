@@ -37,6 +37,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final AuditService auditService;
     private final PasswordDigest passwordDigest;
+    private final DecoyLoginAttempts decoyAttempts;
 
 
 
@@ -46,15 +47,13 @@ public class AuthService {
         String digest = passwordDigest.fromSubmitted(request.password());   // 400 if plain outside local
         Optional<User> found = userRepository.findByUsernameIgnoreCase(request.username().trim());
 
-        if (found.isEmpty()) {
-            passwordEncoder.matches(digest, DUMMY_HASH); // same time as a real check
-            throw new InvalidCredentialsException();                  // 401
+        if (found.isEmpty() || !found.get().isActive()) {
+            // Unknown or disabled: same time, same countdown and same lock as a real account, so the
+            // answers never reveal which usernames exist.
+            passwordEncoder.matches(digest, DUMMY_HASH);
+            throw decoyAttempts.recordFailure(request.username());     // 401 with attemptsLeft, or 423
         }
         User user = found.get();
-
-        if (!user.isActive()) {
-            throw new InvalidCredentialsException();                  // disabled user → same 401
-        }
 
         if (loginAttemptService.isLocked(user)) {
             throw locked(user);                                       // 423 locked
@@ -68,7 +67,7 @@ public class AuthService {
                         String.valueOf(user.getId()), null, Map.of("lockedUntil", user.getLockedUntil()));
                 throw locked(user);
             }
-            throw new InvalidCredentialsException();
+            throw new InvalidCredentialsException(loginAttemptService.attemptsLeft(user));
         }
 
         loginAttemptService.recordSuccess(user);                      // reset the failed count
