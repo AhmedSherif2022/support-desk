@@ -8,7 +8,9 @@ import com.supportdesk.auth.dto.RefreshTokenRequest;
 import com.supportdesk.auth.security.AuthenticatedUser;
 import com.supportdesk.common.exception.ApiError;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -35,14 +37,23 @@ public interface AuthApi
     @SecurityRequirements   // public: no token needed
     @Operation(summary = "Log in",
             description = "Returns a short-lived access token and a refresh token. "
-                    + "Too many wrong passwords in a row lock the account for a while.")
+                    + "Send the password as SHA-256(password) in hex. 5 wrong passwords within 15 minutes "
+                    + "lock the account for 15 minutes.")
     @ApiResponse(responseCode = "200", description = "Logged in")
-    @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: username or password missing or too long",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: username or password missing or too long; "
+            + "PASSWORD_NOT_HASHED: a plain password outside the local profile",
+            content = @Content(schema = @Schema(implementation = ApiError.class),
+                    examples = @ExampleObject(name = "Plain password", value = "{\"code\":\"PASSWORD_NOT_HASHED\",\"message\":\"Send the password as its SHA-256 hash: 64 hex characters.\",\"fieldErrors\":{},\"path\":\"/api/auth/login\",\"timestamp\":\"2026-11-12T10:00:00Z\"}")))
     @ApiResponse(responseCode = "401", description = "INVALID_CREDENTIALS: wrong username or password (same answer for both)",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
-    @ApiResponse(responseCode = "423", description = "ACCOUNT_LOCKED: too many failed logins; the message says until when",
-            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "423",
+            description = "ACCOUNT_LOCKED: 5 wrong passwords within 15 minutes lock the account for 15 minutes. "
+                    + "Every login is refused until retryAt, even with the right password. "
+                    + "Show a countdown from retryAfterSeconds.",
+            headers = @Header(name = "Retry-After", description = "Seconds until the account unlocks; same as retryAfterSeconds.",
+                    schema = @Schema(type = "integer", example = "900")),
+            content = @Content(schema = @Schema(implementation = ApiError.class),
+                    examples = @ExampleObject(name = "Locked", value = "{\"code\":\"ACCOUNT_LOCKED\",\"message\":\"Your account is locked because of too many failed logins. Try again in 15 minutes.\",\"fieldErrors\":{},\"path\":\"/api/auth/login\",\"timestamp\":\"2026-11-12T10:00:00Z\",\"retryAt\":\"2026-11-12T10:15:00Z\",\"retryAfterSeconds\":900}")))
     LoginResponse login(@Valid @RequestBody LoginRequest request);
 
     @PostMapping("/refresh")

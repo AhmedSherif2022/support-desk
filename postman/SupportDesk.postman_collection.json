@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Support Desk API",
-    "description": "Local Support Desk backend. Start Postgres (`docker compose up -d`) and the app, then run the whole collection with the Collection Runner: each request saves the tokens the next one needs.\n\nSeeded users (local profile, password `Password123!`): `mona` AGENT, `youssef` GUIDE_ADMIN, `nour` REVIEWER.\n\nFull reference with every field and error code: http://localhost:8080/swagger-ui.html",
+    "description": "Local Support Desk backend. Start Postgres (`docker compose up -d`) and the app, then run the whole collection with the Collection Runner: each request saves the tokens the next one needs.\n\nSeeded users (local profile, password `Password123!`): `mona` AGENT, `youssef` GUIDE_ADMIN, `nour` REVIEWER. Folder 2 locks `nour` for 15 minutes to show the lockout response.\n\nFull reference with every field and error code: http://localhost:8080/swagger-ui.html",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -12,7 +12,10 @@
     { "key": "baseUrl", "value": "http://localhost:8080" },
     { "key": "agentUsername", "value": "mona" },
     { "key": "adminUsername", "value": "youssef" },
+    { "key": "lockUsername", "value": "nour" },
+    { "key": "lockRetryAfter", "value": "" },
     { "key": "password", "value": "Password123!" },
+    { "key": "passwordHash", "value": "" },
     { "key": "accessToken", "value": "" },
     { "key": "refreshToken", "value": "" },
     { "key": "adminAccessToken", "value": "" },
@@ -22,7 +25,12 @@
     { "key": "guideTicket", "value": "" },
     { "key": "guideId", "value": "" },
     { "key": "guideRunId", "value": "" },
-    { "key": "noGuideTicket", "value": "" }
+    { "key": "noGuideTicket", "value": "" },
+    { "key": "followUpTicket", "value": "" },
+    { "key": "followUpRunId", "value": "" },
+    { "key": "escalateTicket", "value": "" },
+    { "key": "escalateRunId", "value": "" },
+    { "key": "longNotes", "value": "" }
   ],
   "item": [
     {
@@ -31,7 +39,10 @@
       "item": [
         {
           "name": "Login",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "event": [{ "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+            "// What the frontend does: send SHA-256(password) as hex, never the password itself.",
+            "pm.collectionVariables.set('passwordHash', CryptoJS.SHA256(pm.collectionVariables.get('password')).toString());"
+          ] } }, { "listen": "test", "script": { "type": "text/javascript", "exec": [
             "pm.test('200 OK', () => pm.response.to.have.status(200));",
             "const body = pm.response.json();",
             "pm.test('Returns access and refresh tokens', () => {",
@@ -47,8 +58,8 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/auth/login",
-            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{agentUsername}}\",\n  \"password\": \"{{password}}\"\n}" },
-            "description": "Public. Returns a short-lived access token and a refresh token."
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{agentUsername}}\",\n  \"password\": \"{{passwordHash}}\"\n}" },
+            "description": "Public. The password is sent as its SHA-256 (the pre-request script makes it, like the frontend). The local profile also accepts the plain password, which the other folders use."
           }
         },
         {
@@ -163,6 +174,64 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "url": "{{baseUrl}}/api/auth/login",
             "body": { "mode": "raw", "raw": "{ not json" }
+          }
+        },
+        {
+          "name": "Lock the account (5th wrong password)",
+          "event": [{ "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+            "// 4 wrong passwords first; this request is the 5th, which locks the account.",
+            "// If nour is still locked from a run in the last 15 minutes, these get 423 too and the tests still hold.",
+            "const url = pm.collectionVariables.get('baseUrl') + '/api/auth/login';",
+            "const wrong = (left) => {",
+            "  if (left === 0) return;",
+            "  pm.sendRequest({",
+            "    url, method: 'POST', header: { 'Content-Type': 'application/json' },",
+            "    body: { mode: 'raw', raw: JSON.stringify({ username: pm.collectionVariables.get('lockUsername'), password: 'wrong-password' }) }",
+            "  }, () => wrong(left - 1));",
+            "};",
+            "wrong(4);"
+          ] } }, { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('423 Locked', () => pm.response.to.have.status(423));",
+            "const body = pm.response.json();",
+            "pm.test('code ACCOUNT_LOCKED', () => pm.expect(body.code).to.eql('ACCOUNT_LOCKED'));",
+            "pm.test('Says how long, in minutes', () => pm.expect(body.message).to.match(/Try again in \\d+ minutes?\\.$/));",
+            "pm.test('retryAt is in the future, at most 15 minutes away', () => {",
+            "  const ms = new Date(body.retryAt) - Date.now();",
+            "  pm.expect(ms).to.be.above(0);",
+            "  pm.expect(ms).to.be.at.most(15 * 60 * 1000 + 5000);",
+            "});",
+            "pm.test('retryAfterSeconds for the countdown (1 to 900)', () => pm.expect(body.retryAfterSeconds).to.be.within(1, 900));",
+            "pm.test('Retry-After header matches', () => pm.expect(pm.response.headers.get('Retry-After')).to.eql(String(body.retryAfterSeconds)));",
+            "pm.collectionVariables.set('lockRetryAfter', body.retryAfterSeconds);"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{lockUsername}}\",\n  \"password\": \"wrong-password\"\n}" },
+            "description": "Locks nour (REVIEWER, used nowhere else) for 15 minutes. The 423 body carries retryAt and retryAfterSeconds, plus a Retry-After header, so the login screen can show a countdown."
+          }
+        },
+        {
+          "name": "Right password while locked",
+          "event": [{ "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+            "pm.collectionVariables.set('passwordHash', CryptoJS.SHA256(pm.collectionVariables.get('password')).toString());"
+          ] } }, { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "// The right password does not get through a lock; the countdown keeps going down.",
+            "pm.test('423 Locked', () => pm.response.to.have.status(423));",
+            "const body = pm.response.json();",
+            "pm.test('code ACCOUNT_LOCKED', () => pm.expect(body.code).to.eql('ACCOUNT_LOCKED'));",
+            "pm.test('Countdown has not reset', () =>",
+            "  pm.expect(body.retryAfterSeconds).to.be.at.most(Number(pm.collectionVariables.get('lockRetryAfter'))));"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{lockUsername}}\",\n  \"password\": \"{{passwordHash}}\"\n}" },
+            "description": "Still 423 until retryAt, even with the right password (sent as SHA-256, like the frontend)."
           }
         }
       ]
@@ -1075,7 +1144,7 @@
     },
     {
       "name": "8. Guided troubleshooting (E4)",
-      "description": "E4-S1 and E4-S2. Runs after folder 6 has verified Sara, as mona.",
+      "description": "E4-S1 to E4-S3: recommend, run and finish a guide (one run per outcome). Runs after folder 6 has verified Sara, as mona.",
       "item": [
         {
           "name": "Create a Login Failed ticket",
@@ -1338,6 +1407,634 @@
             "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}",
             "header": [],
             "description": ""
+          }
+        },
+        {
+          "name": "Finish before an outcome",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('GUIDE_OUTCOME_NOT_REACHED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}/complete",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "Answer step 2 (works on another device)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const run = pm.response.json();",
+                  "pm.test('Outcome reached: RESOLVED', () => {",
+                  "    pm.expect(run.status).to.eql('OUTCOME_REACHED');",
+                  "    pm.expect(run.outcome.type).to.eql('RESOLVED');",
+                  "    pm.expect(run.currentStep).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}/answers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"other-device\",\n  \"answerKey\": \"yes\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Finish the guide (Resolved)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const done = pm.response.json();",
+                  "pm.test('RESOLVED applied: ticket is RESOLVED', () => {",
+                  "    pm.expect(done.outcomeType).to.eql('RESOLVED');",
+                  "    pm.expect(done.ticketStatus).to.eql('RESOLVED');",
+                  "    pm.expect(done.run.status).to.eql('COMPLETED');",
+                  "    pm.expect(done.customerScript).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}/complete",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Customer cleared the app data and logged in.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Customer script logged on the ticket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Newest contact is the guide script', () => pm.expect(pm.response.json().items[0].note).to.match(/^Told customer: /));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/{{guideTicket}}/contacts",
+            "header": [],
+            "description": ""
+          }
+        },
+        {
+          "name": "Finish it again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409', () => pm.response.to.have.status(409));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('GUIDE_OUTCOME_NOT_REACHED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}/complete",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "Create a ticket for the follow-up outcome",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('followUpTicket', pm.response.json().number.replace('#', ''));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cif\": \"{{cif}}\",\n  \"categoryCode\": \"LOGIN_FAILED\",\n  \"priority\": \"HIGH\",\n  \"description\": \"Customer cannot use the app.\",\n  \"platform\": \"MOBILE\",\n  \"allowDuplicate\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Start the guide (follow-up)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('followUpRunId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketNumber\": \"{{followUpTicket}}\",\n  \"guideId\": \"{{guideId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Follow-up: answer step 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('On other-device', () => pm.expect(pm.response.json().currentStep.stepKey).to.eql('other-device'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{followUpRunId}}/answers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"app-version\",\n  \"answerKey\": \"yes\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Follow-up: answer step 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('On status-page', () => pm.expect(pm.response.json().currentStep.stepKey).to.eql('status-page'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{followUpRunId}}/answers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"other-device\",\n  \"answerKey\": \"no\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Follow-up: answer step 3 (known incident)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const run = pm.response.json();",
+                  "pm.test('Outcome reached: FOLLOW_UP', () => {",
+                  "    pm.expect(run.status).to.eql('OUTCOME_REACHED');",
+                  "    pm.expect(run.outcome.type).to.eql('FOLLOW_UP');",
+                  "    pm.expect(run.currentStep).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{followUpRunId}}/answers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"status-page\",\n  \"answerKey\": \"yes\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Finish the guide (Follow-up)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const done = pm.response.json();",
+                  "pm.test('FOLLOW_UP applied: ticket is WAITING_ON_CUSTOMER', () => {",
+                  "    pm.expect(done.outcomeType).to.eql('FOLLOW_UP');",
+                  "    pm.expect(done.ticketStatus).to.eql('WAITING_ON_CUSTOMER');",
+                  "    pm.expect(done.run.status).to.eql('COMPLETED');",
+                  "    pm.expect(done.customerScript).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{followUpRunId}}/complete",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"Login is down for everyone; customer will retry later.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Follow-up ticket waits with the SLA paused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const t = pm.response.json();",
+                  "pm.test('Waiting on customer, SLA paused', () => {",
+                  "    pm.expect(t.status).to.eql('WAITING_ON_CUSTOMER');",
+                  "    pm.expect(t.slaLabel).to.eql('Paused');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/{{followUpTicket}}",
+            "header": [],
+            "description": ""
+          }
+        },
+        {
+          "name": "Create a ticket for the escalate outcome",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('escalateTicket', pm.response.json().number.replace('#', ''));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cif\": \"{{cif}}\",\n  \"categoryCode\": \"LOGIN_FAILED\",\n  \"priority\": \"HIGH\",\n  \"description\": \"Customer cannot use the app.\",\n  \"platform\": \"MOBILE\",\n  \"allowDuplicate\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Start the guide (escalate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('escalateRunId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketNumber\": \"{{escalateTicket}}\",\n  \"guideId\": \"{{guideId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Escalate: answer step 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('On other-device', () => pm.expect(pm.response.json().currentStep.stepKey).to.eql('other-device'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{escalateRunId}}/answers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"app-version\",\n  \"answerKey\": \"yes\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Escalate: answer step 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('On status-page', () => pm.expect(pm.response.json().currentStep.stepKey).to.eql('status-page'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{escalateRunId}}/answers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"other-device\",\n  \"answerKey\": \"no\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Escalate: answer step 3 (no incident)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const run = pm.response.json();",
+                  "pm.test('Outcome reached: ESCALATE', () => {",
+                  "    pm.expect(run.status).to.eql('OUTCOME_REACHED');",
+                  "    pm.expect(run.outcome.type).to.eql('ESCALATE');",
+                  "    pm.expect(run.currentStep).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{escalateRunId}}/answers",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"status-page\",\n  \"answerKey\": \"no\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Finish with notes over 2000 characters",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('longNotes', 'x'.repeat(2001));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('VALIDATION_FAILED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{escalateRunId}}/complete",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"{{longNotes}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Finish the guide (Escalate)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const done = pm.response.json();",
+                  "pm.test('ESCALATE applied: ticket is ESCALATED', () => {",
+                  "    pm.expect(done.outcomeType).to.eql('ESCALATE');",
+                  "    pm.expect(done.ticketStatus).to.eql('ESCALATED');",
+                  "    pm.expect(done.run.status).to.eql('COMPLETED');",
+                  "    pm.expect(done.customerScript).to.be.a('string').and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{escalateRunId}}/complete",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "Finish a run that does not exist",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('GUIDE_RUN_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/999999/complete",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
           }
         },
         {

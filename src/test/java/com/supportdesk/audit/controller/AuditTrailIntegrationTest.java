@@ -8,6 +8,7 @@ import com.supportdesk.auth.enums.Role;
 import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.repository.UserRepository;
 import com.supportdesk.auth.service.JwtService;
+import com.supportdesk.auth.service.PasswordDigest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -79,6 +81,17 @@ class AuditTrailIntegrationTest
     }
 
     @Test
+    void loginAcceptsTheSha256TheBrowserSends() throws Exception
+    {
+        User agent = newUser(Role.AGENT);
+
+        login(agent.getUsername(), PasswordDigest.sha256Hex(PASSWORD)).andExpect(status().isOk());
+        login(agent.getUsername(), PasswordDigest.sha256Hex("wrong"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.retryAt").doesNotExist());     // only a lock says when to retry
+    }
+
+    @Test
     void fifthWrongPasswordLocksTheAccountAndIsAudited() throws Exception
     {
         User agent = newUser(Role.AGENT);
@@ -88,7 +101,17 @@ class AuditTrailIntegrationTest
         }
         login(agent.getUsername(), "wrong")
                 .andExpect(status().isLocked())
-                .andExpect(jsonPath("$.code").value("ACCOUNT_LOCKED"));
+                .andExpect(jsonPath("$.code").value("ACCOUNT_LOCKED"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.endsWith("Try again in 15 minutes.")))
+                .andExpect(jsonPath("$.retryAt").exists())
+                .andExpect(jsonPath("$.retryAfterSeconds").value(org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.greaterThan(890), org.hamcrest.Matchers.lessThanOrEqualTo(900))))
+                .andExpect(header().exists("Retry-After"));
+
+        // still locked, even with the right password
+        login(agent.getUsername(), PASSWORD)
+                .andExpect(status().isLocked())
+                .andExpect(jsonPath("$.retryAfterSeconds").exists());
 
         AuditLog log = onlyNewRow(AuditAction.USER_LOCKED);
         assertThat(log.getUsername()).isEqualTo(agent.getUsername());
@@ -216,7 +239,7 @@ class AuditTrailIntegrationTest
     {
         String username = "audit_" + role.name().toLowerCase() + "_" + UUID.randomUUID().toString().substring(0, 8);
         String mobile = String.format("+2099%08d", ThreadLocalRandom.current().nextInt(100_000_000));
-        return userRepository.save(new User(username, passwordEncoder.encode(PASSWORD), "Audit Test",
+        return userRepository.save(new User(username, passwordEncoder.encode(PasswordDigest.sha256Hex(PASSWORD)), "Audit Test",
                 username + "@test.local", mobile, role));
     }
 }

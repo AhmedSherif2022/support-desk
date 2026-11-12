@@ -36,8 +36,9 @@ supportdesk:
     lock-duration: 15m
     failure-window: 15m               # max-failed-attempts must happen within this to lock
     inactivity-timeout: 30m           # no refresh for this long ends the session (refresh token expires)
+    allow-plain-password: false       # the frontend must send SHA-256(password); only the local profile relaxes this
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200,http://localhost:5173,http://localhost:3000}
   tickets:
     sla:
       warning-at-percent: 75          # at or above this, and still under the target, the ticket is AT_RISK
