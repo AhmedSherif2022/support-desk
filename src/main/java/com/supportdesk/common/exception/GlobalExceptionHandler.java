@@ -1,9 +1,11 @@
 package com.supportdesk.common.exception;
+import com.supportdesk.auth.exception.AccountLockedException;
 import com.supportdesk.common.enums.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -28,6 +30,17 @@ public class GlobalExceptionHandler
         return ResponseEntity
                 .status(ex.getStatus())
                 .body(ApiError.of(ex.getCode(), ex.getMessage(), request.getRequestURI()));
+    }
+
+
+    // 423 with retryAt / retryAfterSeconds (and Retry-After) so the login screen can show a countdown.
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ApiError> handleAccountLocked(AccountLockedException ex, HttpServletRequest request) {
+        return ResponseEntity
+                .status(ex.getStatus())
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
+                .body(ApiError.retryLater(ex.getCode(), ex.getMessage(), request.getRequestURI(),
+                        ex.getLockedUntil(), ex.getRetryAfterSeconds()));
     }
 
 

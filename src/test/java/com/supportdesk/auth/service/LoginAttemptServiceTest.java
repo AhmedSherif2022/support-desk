@@ -18,7 +18,7 @@ class LoginAttemptServiceTest
     private static final Instant T0 = Instant.parse("2026-11-02T10:00:00Z");
 
     private final AuthProperties properties = new AuthProperties("secret", Duration.ofMinutes(15), 5,
-            Duration.ofMinutes(15), Duration.ofMinutes(15), Duration.ofMinutes(30));
+            Duration.ofMinutes(15), Duration.ofMinutes(15), Duration.ofMinutes(30), false);
 
     private final User user = new User("mona", "hash", "Mona", "mona@test.local", "+201000000000", Role.AGENT);
 

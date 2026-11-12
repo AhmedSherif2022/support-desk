@@ -10,6 +10,7 @@ public enum ErrorCode
 
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Username or password is incorrect."),
     ACCOUNT_LOCKED(HttpStatus.LOCKED, "Your account is locked because of too many failed logins."),
+    PASSWORD_NOT_HASHED(HttpStatus.BAD_REQUEST, "Send the password as its SHA-256 hash: 64 hex characters."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Please log in to continue."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "You do not have permission to do this."),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "Refresh token is not valid. Please log in again."),

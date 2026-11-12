@@ -36,16 +36,18 @@ public class AuthService {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final AuditService auditService;
+    private final PasswordDigest passwordDigest;
 
 
 
     @Transactional(noRollbackFor = ApiException.class)    // keep the failed-attempt count even when we throw
     public LoginResponse login(LoginRequest request)
     {
+        String digest = passwordDigest.fromSubmitted(request.password());   // 400 if plain outside local
         Optional<User> found = userRepository.findByUsernameIgnoreCase(request.username().trim());
 
         if (found.isEmpty()) {
-            passwordEncoder.matches(request.password(), DUMMY_HASH); // same time as a real check
+            passwordEncoder.matches(digest, DUMMY_HASH); // same time as a real check
             throw new InvalidCredentialsException();                  // 401
         }
         User user = found.get();
@@ -55,16 +57,16 @@ public class AuthService {
         }
 
         if (loginAttemptService.isLocked(user)) {
-            throw new AccountLockedException(user.getLockedUntil());  // 423 locked
+            throw locked(user);                                       // 423 locked
         }
 
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        if (!passwordEncoder.matches(digest, user.getPasswordHash())) {
             loginAttemptService.recordFailure(user);
             if (loginAttemptService.isLocked(user)) {
                 // committed with the lock: noRollbackFor keeps both when we throw
                 auditService.record(AuditAction.USER_LOCKED, AuthenticatedUser.from(user), "USER",
                         String.valueOf(user.getId()), null, Map.of("lockedUntil", user.getLockedUntil()));
-                throw new AccountLockedException(user.getLockedUntil());
+                throw locked(user);
             }
             throw new InvalidCredentialsException();
         }
@@ -76,6 +78,11 @@ public class AuthService {
         auditService.record(AuditAction.USER_LOGIN, AuthenticatedUser.from(user), "USER",
                 String.valueOf(user.getId()), null, null);
         return new LoginResponse(issued.token(), refreshToken.getToken());
+    }
+
+    private AccountLockedException locked(User user)
+    {
+        return new AccountLockedException(user.getLockedUntil(), loginAttemptService.lockRemaining(user));
     }
 
     @Transactional(noRollbackFor = ApiException.class)

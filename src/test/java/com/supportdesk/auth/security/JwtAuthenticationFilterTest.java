@@ -8,6 +8,7 @@ import com.supportdesk.auth.repository.UserRepository;
 import com.supportdesk.auth.service.AuthService;
 import com.supportdesk.auth.service.JwtService;
 import com.supportdesk.auth.service.LoginAttemptService;
+import com.supportdesk.auth.service.PasswordDigest;
 import com.supportdesk.auth.service.RefreshTokenService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,10 +61,10 @@ class JwtAuthenticationFilterTest
         Clock clock = Clock.systemUTC();
         jwtService = new JwtService(
                 new AuthProperties(secret, Duration.ofMinutes(30), 5, Duration.ofMinutes(15),
-                        Duration.ofMinutes(15), Duration.ofMinutes(30)), clock);
+                        Duration.ofMinutes(15), Duration.ofMinutes(30), false), clock);
         authService = new AuthService(
                 userRepository, mock(PasswordEncoder.class), mock(LoginAttemptService.class), jwtService, refreshTokenService,
-                mock(AuditService.class));
+                mock(AuditService.class), mock(PasswordDigest.class));
         filter = new JwtAuthenticationFilter(jwtService, userRepository, clock);
 
         user = new User("agent", "hash", "Agent Smith", "agent@example.com", "+201000000000", Role.AGENT);

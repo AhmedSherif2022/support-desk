@@ -14,3 +14,4 @@ spring:
 supportdesk:
   auth:
     jwt-secret: ${JWT_SECRET:jZ8KyrG8AdOwr22aPCs2YRwz5tpFCDwEC3BdV5aEnZjKl6/bwAanV0WBD7GQMpfq}
+    allow-plain-password: true        # so Swagger "Try it out" and Postman can send Password123! as is
