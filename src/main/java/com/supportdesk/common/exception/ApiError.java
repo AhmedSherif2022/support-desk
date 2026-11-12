@@ -21,22 +21,32 @@ public record ApiError
         @Schema(description = "Only with retryAt: seconds left until then, for a countdown. Also sent as the Retry-After header.",
                 example = "900", nullable = true)
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        Long retryAfterSeconds
+        Long retryAfterSeconds,
+
+        @Schema(description = "Only on INVALID_CREDENTIALS from login: wrong passwords left before the account locks.",
+                example = "3", nullable = true)
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        Integer attemptsLeft
 )
 {
 
     public static ApiError of(String code, String message, String path)
     {
-        return new ApiError(code, message, Map.of(), path, Instant.now(), null, null);
+        return new ApiError(code, message, Map.of(), path, Instant.now(), null, null, null);
     }
 
     public static ApiError withFields(String code, String message, Map<String, String> fieldErrors, String path)
     {
-        return new ApiError(code, message, fieldErrors, path, Instant.now(), null, null);
+        return new ApiError(code, message, fieldErrors, path, Instant.now(), null, null, null);
     }
 
     public static ApiError retryLater(String code, String message, String path, Instant retryAt, long retryAfterSeconds)
     {
-        return new ApiError(code, message, Map.of(), path, Instant.now(), retryAt, retryAfterSeconds);
+        return new ApiError(code, message, Map.of(), path, Instant.now(), retryAt, retryAfterSeconds, null);
+    }
+
+    public static ApiError withAttemptsLeft(String code, String message, String path, int attemptsLeft)
+    {
+        return new ApiError(code, message, Map.of(), path, Instant.now(), null, null, attemptsLeft);
     }
 }

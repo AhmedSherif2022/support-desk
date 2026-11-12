@@ -24,6 +24,12 @@ public class LoginAttemptService
         return user.isLocked(clock.instant());
     }
 
+    /** Wrong passwords left before the next one locks the account. */
+    public int attemptsLeft(User user)
+    {
+        return properties.maxFailedAttempts() - user.getFailedLoginAttempts();
+    }
+
     /** Zero once the lock has run out. */
     public Duration lockRemaining(User user)
     {

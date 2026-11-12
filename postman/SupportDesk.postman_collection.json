@@ -13,7 +13,9 @@
     { "key": "agentUsername", "value": "mona" },
     { "key": "adminUsername", "value": "youssef" },
     { "key": "lockUsername", "value": "nour" },
+    { "key": "plainPasswordAllowed", "value": "true" },
     { "key": "lockRetryAfter", "value": "" },
+    { "key": "lockCountdown", "value": "" },
     { "key": "password", "value": "Password123!" },
     { "key": "passwordHash", "value": "" },
     { "key": "accessToken", "value": "" },
@@ -136,7 +138,11 @@
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
             "// One failure only; the next successful login resets the counter, so this never locks mona.",
             "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));",
-            "pm.test('code INVALID_CREDENTIALS', () => pm.expect(pm.response.json().code).to.eql('INVALID_CREDENTIALS'));"
+            "const body = pm.response.json();",
+            "pm.test('code INVALID_CREDENTIALS', () => pm.expect(body.code).to.eql('INVALID_CREDENTIALS'));",
+            "// 4 right after folder 1's successful login; lower only if this folder is rerun on its own.",
+            "pm.test('attemptsLeft counts down (4 after a fresh login)', () => pm.expect(body.attemptsLeft).to.be.within(1, 4));",
+            "pm.test('Message says how many are left', () => pm.expect(body.message).to.match(/\\d+ attempts? left/));"
           ] } }],
           "request": {
             "auth": { "type": "noauth" },
@@ -177,17 +183,43 @@
           }
         },
         {
+          "name": "Plain password (400 outside local)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "// Outside the local profile a plain password is refused before anything else is checked.",
+            "// Locally plain passwords are allowed (for Swagger and Postman), so this unknown user just gets 401.",
+            "const body = pm.response.json();",
+            "if (pm.collectionVariables.get('plainPasswordAllowed') === 'false') {",
+            "  pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+            "  pm.test('code PASSWORD_NOT_HASHED', () => pm.expect(body.code).to.eql('PASSWORD_NOT_HASHED'));",
+            "  pm.test('Tells the frontend what to send', () => pm.expect(body.message).to.include('SHA-256'));",
+            "} else {",
+            "  pm.test('401 Unauthorized (plain accepted locally)', () => pm.response.to.have.status(401));",
+            "  pm.test('code INVALID_CREDENTIALS', () => pm.expect(body.code).to.eql('INVALID_CREDENTIALS'));",
+            "  pm.test('Unknown usernames count down like real ones', () => pm.expect(body.attemptsLeft).to.eql(4));",
+            "}"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"ghost-{{$guid}}\",\n  \"password\": \"Password123!\"\n}" },
+            "description": "The frontend must send SHA-256(password). Outside the local profile a plain password gets 400 PASSWORD_NOT_HASHED. Set plainPasswordAllowed to false when the server runs with allow-plain-password: false. A new unknown username each run, so no account collects failed attempts."
+          }
+        },
+        {
           "name": "Lock the account (5th wrong password)",
           "event": [{ "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
-            "// 4 wrong passwords first; this request is the 5th, which locks the account.",
+            "// 4 wrong passwords first (attemptsLeft 4, 3, 2, 1); this request is the 5th, which locks the account.",
             "// If nour is still locked from a run in the last 15 minutes, these get 423 too and the tests still hold.",
             "const url = pm.collectionVariables.get('baseUrl') + '/api/auth/login';",
+            "const seen = [];",
             "const wrong = (left) => {",
-            "  if (left === 0) return;",
+            "  if (left === 0) return pm.collectionVariables.set('lockCountdown', JSON.stringify(seen));",
             "  pm.sendRequest({",
             "    url, method: 'POST', header: { 'Content-Type': 'application/json' },",
             "    body: { mode: 'raw', raw: JSON.stringify({ username: pm.collectionVariables.get('lockUsername'), password: 'wrong-password' }) }",
-            "  }, () => wrong(left - 1));",
+            "  }, (err, res) => { seen.push(res.code === 401 ? res.json().attemptsLeft : res.code); wrong(left - 1); });",
             "};",
             "wrong(4);"
           ] } }, { "listen": "test", "script": { "type": "text/javascript", "exec": [
@@ -202,7 +234,13 @@
             "});",
             "pm.test('retryAfterSeconds for the countdown (1 to 900)', () => pm.expect(body.retryAfterSeconds).to.be.within(1, 900));",
             "pm.test('Retry-After header matches', () => pm.expect(pm.response.headers.get('Retry-After')).to.eql(String(body.retryAfterSeconds)));",
-            "pm.collectionVariables.set('lockRetryAfter', body.retryAfterSeconds);"
+            "pm.collectionVariables.set('lockRetryAfter', body.retryAfterSeconds);",
+            "const countdown = JSON.parse(pm.collectionVariables.get('lockCountdown') || '[]');",
+            "// All 423 means nour was still locked from a run in the last 15 minutes.",
+            "pm.test('The 4 wrong passwords counted down 4, 3, 2, 1', () => {",
+            "  if (countdown.every(c => c === 423)) return;",
+            "  pm.expect(countdown).to.eql([4, 3, 2, 1]);",
+            "});"
           ] } }],
           "request": {
             "auth": { "type": "noauth" },

@@ -88,7 +88,27 @@ class AuditTrailIntegrationTest
         login(agent.getUsername(), PasswordDigest.sha256Hex(PASSWORD)).andExpect(status().isOk());
         login(agent.getUsername(), PasswordDigest.sha256Hex("wrong"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.retryAt").doesNotExist());     // only a lock says when to retry
+                .andExpect(jsonPath("$.retryAt").doesNotExist())      // only a lock says when to retry
+                .andExpect(jsonPath("$.attemptsLeft").value(4));
+    }
+
+    @Test
+    void anUnknownUsernameCountsDownAndLocksLikeARealOne() throws Exception
+    {
+        String ghost = "ghost_" + UUID.randomUUID().toString().substring(0, 8);
+
+        for (int attempt = 1; attempt <= 4; attempt++) {
+            login(ghost, "wrong")
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.attemptsLeft").value(5 - attempt));
+        }
+        login(ghost.toUpperCase(), "wrong")                                    // usernames are case-insensitive
+                .andExpect(status().isLocked())
+                .andExpect(jsonPath("$.retryAfterSeconds").exists())
+                .andExpect(header().exists("Retry-After"));
+        login(ghost, "wrong").andExpect(status().isLocked());
+        assertThat(auditLogRepository.findAll()).noneMatch(row -> row.getId() > baseline
+                && row.getAction() == AuditAction.USER_LOCKED && ghost.equals(row.getUsername()));
     }
 
     @Test
@@ -97,7 +117,9 @@ class AuditTrailIntegrationTest
         User agent = newUser(Role.AGENT);
 
         for (int attempt = 1; attempt <= 4; attempt++) {
-            login(agent.getUsername(), "wrong").andExpect(status().isUnauthorized());
+            login(agent.getUsername(), "wrong")
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.attemptsLeft").value(5 - attempt));        // 4, 3, 2, 1
         }
         login(agent.getUsername(), "wrong")
                 .andExpect(status().isLocked())
