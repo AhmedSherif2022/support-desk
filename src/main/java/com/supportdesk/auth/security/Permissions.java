@@ -44,6 +44,7 @@ public final class Permissions
 
 
     public static final List<String> PUBLIC_ANY = List.of(
+            "/",                       // redirects to Swagger UI (RootController)
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
