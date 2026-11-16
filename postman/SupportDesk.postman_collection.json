@@ -847,6 +847,31 @@
       "description": "Runs as mona with Sara verified by folder 6. Creates a ticket and walks it through the lifecycle and tabs.",
       "item": [
         {
+          "name": "Ticket categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json().find(x => x.code === 'PAYMENT_FAILED');",
+                  "pm.test('Payment Failed starts at HIGH and needs a TRX- reference', () => {",
+                  "    pm.expect(c.parentCode).to.eql('PAYMENTS');",
+                  "    pm.expect(c.defaultPriority).to.eql('HIGH');",
+                  "    pm.expect(c.referenceRequired).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/categories",
+            "description": "The create form's category list: start the priority from defaultPriority, and ask for a reference when referenceRequired is true (referenceHint says the format)."
+          }
+        },
+        {
           "name": "Precheck (duplicate warning)",
           "event": [
             {
@@ -1208,7 +1233,47 @@
           ],
           "request": {
             "method": "GET",
-            "url": "{{baseUrl}}/api/tickets?view=OPEN"
+            "url": "{{baseUrl}}/api/tickets?view=OPEN",
+            "description": "The Home \"My tickets\" badge is this response's totalItems."
+          }
+        },
+        {
+          "name": "My tickets sorted by SLA deadline",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets?sort=slaDueAt,asc",
+            "description": "sort takes createdAt (default, desc), ticketNumber, priority, status or slaDueAt."
+          }
+        },
+        {
+          "name": "Sort by a field not in the list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('REQUEST_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets?sort=customer.nationalId,asc",
+            "description": "Any sort field outside the list is refused, so rows cannot be ordered by a hidden customer field."
           }
         },
         {
@@ -1358,6 +1423,26 @@
               "mode": "raw",
               "raw": "{\n  \"ticketNumber\": \"{{guideTicket}}\",\n  \"guideId\": \"{{guideId}}\"\n}"
             }
+          }
+        },
+        {
+          "name": "Ticket points to its unfinished run",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('activeGuideRunId is the run just started', () => pm.expect(String(pm.response.json().activeGuideRunId)).to.eql(String(pm.collectionVariables.get('guideRunId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/{{guideTicket}}",
+            "description": "After a reload, reopen the run from activeGuideRunId instead of starting a new one (that gets 409)."
           }
         },
         {

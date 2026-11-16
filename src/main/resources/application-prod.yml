@@ -5,9 +5,7 @@ spring:
     # don't fail validation over those missing scripts.
     ignore-migration-patterns: "*:missing,*:future"
 
-# No public API docs or Swagger UI in production.
-springdoc:
-  api-docs:
-    enabled: false
-  swagger-ui:
-    enabled: false
+server:
+  # Railway ends HTTPS at its proxy: honour X-Forwarded-Proto so Swagger's server URL is https
+  # (an http URL makes "Try it out" fail as mixed content).
+  forward-headers-strategy: framework
