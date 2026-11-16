@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Support Desk API",
-    "description": "Local Support Desk backend. Start Postgres (`docker compose up -d`) and the app, then run the whole collection with the Collection Runner: each request saves the tokens the next one needs.\n\nSeeded users (local profile, password `Password123!`): `mona` AGENT, `youssef` GUIDE_ADMIN, `nour` REVIEWER. Folder 2 locks `nour` for 15 minutes to show the lockout response.\n\nFull reference with every field and error code: http://localhost:8080/swagger-ui.html",
+    "description": "Local Support Desk backend. Start Postgres (`docker compose up -d`) and the app, then run the whole collection with the Collection Runner: each request saves the tokens and numbers the next one needs. Run it against a local app only: it creates tickets and locks `nour` for 15 minutes.\n\nSeeded users (local profile, password `Password123!`): `mona` AGENT, `youssef` GUIDE_ADMIN, `nour` REVIEWER.\n\nFolders:\n1. Auth flow: log in, refresh, log out.\n2. Login errors: wrong password, bad bodies, and the lockout with its countdown.\n3. Permissions: each role's areas, and the audited 403.\n4. API docs: the OpenAPI spec.\n5. Home queue (E3-S4): the team's open tickets and the chips.\n6. Customer 360 (E2): search, verification, masking, diagnosis, activity.\n7. Ticket workspace (E3): categories, create, ticket steps (`POST /api/tickets/{number}/steps`), the Reviewer's review endpoints, the tabs, and the ticket list with its sort fields.\n8. Guided troubleshooting (E4): recommend, run and finish a guide for each outcome, and `activeGuideRunId`.\n\nFull reference with every field and error code: Swagger UI at `/swagger-ui.html` on the app, locally (http://localhost:8080/swagger-ui.html) and in production.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -276,7 +276,7 @@
     },
     {
       "name": "3. Permissions (every 403 is audited)",
-      "description": "AGENT: /api/customers, /api/tickets, /api/queue. GUIDE_ADMIN: /api/admin, /api/audit. REVIEWER: /api/review, /api/audit. Allowed areas answer 404 until their endpoints are built.",
+      "description": "AGENT: /api/customers, /api/tickets, /api/queue, /api/guides, /api/guide-runs. GUIDE_ADMIN: /api/admin, /api/audit. REVIEWER: /api/review, /api/audit. Allowed areas answer 404 until their endpoints are built.",
       "item": [
         {
           "name": "Login as mona (AGENT)",
@@ -421,7 +421,7 @@
     },
     {
       "name": "5. Home queue (E3-S4)",
-      "description": "Runs as mona (logged in by folder 3). Confirm-fix tickets first, paused last, otherwise highest SLA % used first.",
+      "description": "Runs as mona (logged in by folder 3). The whole team's open tickets: paused last; otherwise the highest SLA % used first, then the least time left, then the lower ticket id.",
       "item": [
         {
           "name": "Queue, riskiest first",
@@ -844,7 +844,7 @@
     },
     {
       "name": "7. Ticket workspace (E3)",
-      "description": "Runs as mona with Sara verified by folder 6. Creates a ticket and walks it through the lifecycle and tabs.",
+      "description": "Runs as mona with Sara verified by folder 6. Lists the categories, creates a ticket and walks it through its steps and tabs.",
       "item": [
         {
           "name": "Ticket categories",
@@ -1125,7 +1125,7 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}",
-            "description": "The ticket header: SLA label and meter, the pinned next step, and the statuses the agent may choose."
+            "description": "The ticket header: SLA label and meter, the pinned next step, and the steps the agent can take now (availableSteps)."
           }
         },
         {
