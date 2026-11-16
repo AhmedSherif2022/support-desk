@@ -16,7 +16,7 @@ SRE has no portal stories: SRE works in Azure DevOps, and the portal reacts to i
 |------------------------|------------|-------------------------------------|
 | Customer Service Agent | Agent      | Portal — calls, tickets, guides     |
 | Guide Admin (author)   | Admin      | Portal — guides, rules, triage      |
-| Guide Admin (reviewer) | Reviewer   | Portal — approves guide versions    |
+| Guide Admin (reviewer) | Reviewer   | Portal — approves guides, SRE fixes |
 | SRE                    | SRE        | Azure DevOps only                   |
 | System                 | System     | Monitor job, outbox worker, webhook |
 
@@ -47,6 +47,37 @@ SRE has no portal stories: SRE works in Azure DevOps, and the portal reacts to i
 - [E8 Triage, analytics and feedback](#e8-triage-analytics-and-feedback)
 - [E9 Notifications](#e9-notifications)
 - [E10 Platform and non-functional](#e10-platform-and-non-functional)
+- [Backend API](#backend-api)
+
+## Backend API
+
+The full reference, with every field and error code, is Swagger UI at `/swagger-ui.html` (raw spec: `/v3/api-docs`). It runs locally and in production. To try a protected call, log in, press **Authorize** and paste the `accessToken`. The Postman collection in `postman/` runs every flow top to bottom.
+
+### New in the ticket step workflow
+
+| Endpoint | Role | What it does |
+|---|---|---|
+| `GET /api/tickets/categories` | Agent | The create form's categories: code, name, parent, `defaultPriority`, `referenceRequired` and `referenceHint`. Start the priority from `defaultPriority` (E3-S1). |
+| `POST /api/tickets/{number}/steps` | Agent | Moves a ticket by one named step (`PICK_UP_TICKET`, `REQUEST_DETAILS`, `DETAILS_RECEIVED`, `APPLY_FIX`, `ARCHIVE`). Replaces `PATCH /api/tickets/{number}/status`. The ticket's `availableSteps` lists the steps open now (E3-S2). |
+| `GET /api/review/tickets` | Reviewer | Tickets In Review, oldest first. It stays empty until Azure DevOps (E5) sends fixes to review. |
+| `POST /api/review/tickets/{number}/steps` | Reviewer | `REVIEWER_APPROVES` resolves the ticket; `REVIEWER_REJECTS` needs a reason and reopens it. |
+
+Other changes:
+
+- **`activeGuideRunId` on the ticket** (`GET /api/tickets/{number}`): the unfinished guide run while the ticket is Troubleshooting, otherwise null. After a reload, reopen the run from it, because starting again gets 409 `GUIDE_RUN_ALREADY_ACTIVE` (E4-S2).
+- **`sort` on `GET /api/tickets`**: only `createdAt` (the default, newest first), `ticketNumber`, `priority`, `status` and `slaDueAt`. Any other field gets 400 `REQUEST_ERROR`.
+- **The Home "My tickets" badge** is `totalItems` of `GET /api/tickets?view=OPEN`.
+
+### All endpoints
+
+| Area | Endpoints |
+|---|---|
+| Auth (E1) | `POST /api/auth/login` · `POST /api/auth/refresh` · `POST /api/auth/logout` · `GET /api/auth/me` |
+| Audit (E1) | `GET /api/audit/logs` (Admin, Reviewer) |
+| Customers (E2) | `GET /api/customers/search` · `POST /api/customers/{cif}/verify` · `POST /api/customers/{cif}/verification-failed` · `GET /api/customers/{cif}/verification` · `POST /api/customers/{cif}/end-call` · `GET /api/customers/{cif}` · `POST /api/customers/{cif}/reveal` · `GET /api/customers/{cif}/diagnosis` · `GET /api/customers/{cif}/activity` · `GET /api/customers/{cif}/tickets` |
+| Tickets (E3) | `GET /api/tickets/categories` · `POST /api/tickets/precheck` · `POST /api/tickets` · `GET /api/tickets` · `GET /api/tickets/queue` · `GET /api/tickets/{number}` · `POST /api/tickets/{number}/steps` · `GET` and `POST /api/tickets/{number}/contacts` · `GET /api/tickets/{number}/timeline` · `GET /api/tickets/{number}/audit` |
+| Ticket review | `GET /api/review/tickets` · `POST /api/review/tickets/{number}/steps` (Reviewer) |
+| Guides (E4) | `GET /api/guides/recommended` · `POST /api/guide-runs` · `GET /api/guide-runs/{id}` · `POST /api/guide-runs/{id}/answers` · `DELETE /api/guide-runs/{id}/answers/{position}` · `POST /api/guide-runs/{id}/complete` |
 
 ## E1 Access, roles and audit
 
@@ -181,9 +212,10 @@ As an Agent, I want to create a ticket for a verified customer, so that the issu
 
 As the bank, I want tickets to follow fixed states, so that reports and SLAs are reliable.
 
-- Given the state machine (New, Troubleshooting, Waiting on customer, Escalated, With SRE, SRE fixed it — confirm, Resolved, Reopened, Closed), when any transition outside it is requested, then the API rejects it and TICKET_TRANSITION_REJECTED is audited.
+- Given the state machine (New, Troubleshooting, Waiting on customer, Escalated, With SRE, SRE fixed, In Review, Resolved, Reopened, Closed), when any transition outside it is requested, then the API rejects it and TICKET_TRANSITION_REJECTED is audited.
 - Given each allowed transition, then TICKET_STATUS_CHANGED is audited with before and after.
-- Given Resolved, when the customer calls back, then the Agent can Reopen it.
+- Given SRE fixed, then the ticket goes to In Review, where a Reviewer approves the fix (Resolved) or rejects it with a reason (Reopened, back to SRE).
+- Given Resolved, then the Agent can Archive it (Closed); Reopened comes only from a Reviewer rejecting the SRE fix.
 
 ### E3-S3 SLA calculation
 
@@ -193,13 +225,13 @@ As an Agent, I want one SLA number with a meter, so that I see risk at a glance.
 - Given the ticket header, then it shows one value: time left, "Paused", "Met", or "breached Xh Ym", plus a meter.
 - Given 75% of target used, then the meter turns amber and SLA_WARNING fires once; at 100% it turns red and SLA_BREACHED fires once.
 - Given status Waiting on customer, then the clock pauses and resumes when troubleshooting resumes.
-- Given status "SRE fixed it — confirm", then the clock keeps running until the Agent resolves.
+- Given status SRE fixed or In Review, then the clock keeps running until the ticket resolves.
 
 ### E3-S4 Triaged queue on Home
 
 As an Agent, I want one queue ordered by risk, so that I work top-down.
 
-- Given open tickets, then Home lists them ordered by SLA used, with "confirm" tickets near the top and paused tickets at the bottom.
+- Given open tickets, then Home lists them ordered by SLA used, with paused tickets at the bottom.
 - Given each row, then it shows ID, issue, customer, segment, platform, error code, SLA state, origin and one named action.
 - Given filter chips All, At risk, Confirm fix, Auto-created, then counts are shown and the list filters.
 - Given tickets waiting for Guide Admin triage, then they are not in this queue.
@@ -325,7 +357,7 @@ As an Agent, I want the ticket to update when SRE acts, so that I don't have to 
 - Given an event older than the stored revision, then it is ignored.
 - Given Assigned or Active, then the ticket moves to With SRE and shows the owner.
 - Given a comment tagged public, then it shows as Latest update; other comments never reach the portal.
-- Given Resolved, then the ticket moves to "SRE fixed it — confirm", the RCA summary is stored and the Agent is notified.
+- Given Resolved, then the ticket moves to SRE fixed and on to In Review, the RCA summary is stored and the Agent is notified.
 - Given Reopened, then the ticket returns to With SRE.
 - Given every event, then AZURE_WEBHOOK_RECEIVED is audited; for an incident work item, every linked ticket updates.
 
@@ -344,13 +376,13 @@ As an Agent, I want to nudge SRE without leaving the portal, so that a breached 
 - Given I asked less than an hour ago, then the action is blocked and tells me when I can ask again.
 - Given a ticket linked to an incident, then the action is not offered; the next step is to wait for the incident fix.
 
-### E5-S7 Confirm the fix with the customer
+### E5-S7 Review the SRE fix
 
-As an Agent, I want to confirm with the customer before closing, so that "fixed" means fixed for them.
+As a Reviewer, I want to check the SRE fix before the ticket resolves, so that "fixed" means fixed for the customer.
 
-- Given "SRE fixed it — confirm", then the pinned bar shows "Call and confirm" with Confirmed — resolve and Still not working.
-- Given Confirmed, then the ticket resolves and the SLA stops.
-- Given Still not working, then a reopen comment is posted to the work item and the ticket returns to With SRE.
+- Given a ticket In Review, then it is in my review queue with Approve and Reject; the Agent's pinned bar shows Wait for review.
+- Given Approve, then the ticket resolves and the SLA stops.
+- Given Reject, then a reason is required, the ticket is Reopened, a reopen comment is posted to the work item, and it returns to With SRE.
 
 ### E5 tech tasks
 
@@ -410,8 +442,8 @@ As an Agent, I want the open incident above everything, so that I handle every r
 As an Agent, I want one list for all customers of an incident, so that confirming 8 people is one flow.
 
 - Given "Work through all N", then a list shows each ticket, customer, masked mobile, status, SLA and the call script.
-- Given a ticket in "SRE fixed it — confirm", then I can record Confirmed, Still failing or No answer.
-- Given Confirmed, then that ticket resolves; Still failing posts a reopen comment to the incident work item; No answer logs an attempt and keeps the ticket open.
+- Given a ticket In Review, then I can record Confirmed, Still failing or No answer as a customer contact.
+- Given Confirmed or Still failing, then the Reviewer sees it and approves or rejects the fix; No answer logs an attempt and keeps the ticket In Review.
 - Given each ticket, then it keeps its own SLA and audit.
 
 ### E6 tech tasks
