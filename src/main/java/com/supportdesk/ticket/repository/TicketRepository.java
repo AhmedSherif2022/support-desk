@@ -33,6 +33,8 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
     @EntityGraph(attributePaths = {"customer", "category", "category.parent", "assignedAgent"})
     List<Ticket> findByStatusNotIn(Collection<TicketStatus> closedStatuses);
 
+    List<Ticket> findByStatusOrderByCreatedAtAsc(TicketStatus status);
+
 
     @Query(value = "SELECT nextval('ticket_number_seq')", nativeQuery = true)
     Long nextTicketNumber();

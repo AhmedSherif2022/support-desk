@@ -2,6 +2,8 @@ package com.supportdesk.ticket.service;
 
 import com.supportdesk.auth.service.CurrentUserService;
 import com.supportdesk.common.dto.PageResponse;
+import com.supportdesk.common.enums.ErrorCode;
+import com.supportdesk.common.exception.ApiException;
 import com.supportdesk.ticket.enums.TicketListView;
 import com.supportdesk.ticket.dto.TicketWorkspaceDtos.TicketListRow;
 import com.supportdesk.ticket.entity.Ticket;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 /** The agent's ticket list (E3-S7): their own tickets, filtered by status and searched by ticket number or CIF. */
 @Service
@@ -21,6 +24,8 @@ import java.util.List;
 public class TicketListService
 {
     private static final List<TicketStatus> CLOSED_STATUSES = List.of(TicketStatus.RESOLVED, TicketStatus.CLOSED);
+    // Plain columns only: a path like customer.nationalId would order rows by a field the agent cannot see.
+    private static final Set<String> SORTABLE = Set.of("createdAt", "ticketNumber", "priority", "status", "slaDueAt");
 
     private final TicketRepository ticketRepository;
     private final CurrentUserService currentUserService;
@@ -28,6 +33,10 @@ public class TicketListService
     @Transactional(readOnly = true)
     public PageResponse<TicketListRow> list(TicketListView view, String q, Pageable pageable)
     {
+        pageable.getSort().stream().filter(order -> !SORTABLE.contains(order.getProperty())).findFirst()
+                .ifPresent(order -> {
+                    throw new ApiException(ErrorCode.REQUEST_ERROR, "Tickets cannot be sorted by " + order.getProperty() + ".");
+                });
         Long agentId = currentUserService.getCurrentUserId();
         Specification<Ticket> spec = Specification.<Ticket>where(
                         (root, query, cb) -> cb.equal(root.get("assignedAgent").get("id"), agentId))

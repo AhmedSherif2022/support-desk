@@ -208,7 +208,7 @@ As an Agent, I want one queue ordered by risk, so that I work top-down.
 
 As an Agent, I want the ticket to tell me the next step, so that nothing stalls.
 
-- Given the ticket status, then the pinned bar shows exactly one next step: Start guide, Escalate, Resume, Wait for SRE, Ask SRE for update, Call & confirm, or Close.
+- Given the ticket status, then the pinned bar shows exactly one next step: Start guide, Pick up ticket, Escalate, Resume, Wait for SRE, Ask SRE for update, Wait for review, or Archive.
 - Given the Work tab, then guide runs, the read-only SRE panel, a note box, details, same-incident tickets and recent failures are shown.
 - Given Timeline, Customer contact and Audit tabs, then each shows its history newest first with counts in the tab label.
 

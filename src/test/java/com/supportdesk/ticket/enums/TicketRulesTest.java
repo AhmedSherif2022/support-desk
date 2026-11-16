@@ -18,23 +18,23 @@ class TicketRulesTest
     void everyStatusNamesItsNextStep()
     {
         assertThat(NextAction.resolve(TicketStatus.NEW, SlaState.ON_TRACK, true)).isEqualTo(NextAction.START_GUIDE);
-        assertThat(NextAction.resolve(TicketStatus.REOPENED, SlaState.ON_TRACK, true)).isEqualTo(NextAction.START_GUIDE);
+        assertThat(NextAction.resolve(TicketStatus.REOPENED, SlaState.ON_TRACK, true)).isEqualTo(NextAction.WAIT_FOR_SRE);
         assertThat(NextAction.resolve(TicketStatus.TROUBLESHOOTING, SlaState.ON_TRACK, true)).isEqualTo(NextAction.ESCALATE);
         assertThat(NextAction.resolve(TicketStatus.WAITING_ON_CUSTOMER, SlaState.PAUSED, true)).isEqualTo(NextAction.RESUME);
         assertThat(NextAction.resolve(TicketStatus.ESCALATED, SlaState.ON_TRACK, true)).isEqualTo(NextAction.WAIT_FOR_SRE);
         assertThat(NextAction.resolve(TicketStatus.WITH_SRE, SlaState.ON_TRACK, true)).isEqualTo(NextAction.WAIT_FOR_SRE);
         assertThat(NextAction.resolve(TicketStatus.WITH_SRE, SlaState.AT_RISK, true)).isEqualTo(NextAction.ASK_SRE_FOR_UPDATE);
         assertThat(NextAction.resolve(TicketStatus.WITH_SRE, SlaState.BREACHED, true)).isEqualTo(NextAction.ASK_SRE_FOR_UPDATE);
-        assertThat(NextAction.resolve(TicketStatus.SRE_FIXED, SlaState.ON_TRACK, true)).isEqualTo(NextAction.CALL_AND_CONFIRM);
-        assertThat(NextAction.resolve(TicketStatus.RESOLVED, SlaState.MET, true)).isEqualTo(NextAction.CLOSE);
+        assertThat(NextAction.resolve(TicketStatus.SRE_FIXED, SlaState.ON_TRACK, true)).isEqualTo(NextAction.WAIT_FOR_REVIEW);
+        assertThat(NextAction.resolve(TicketStatus.IN_REVIEW, SlaState.ON_TRACK, true)).isEqualTo(NextAction.WAIT_FOR_REVIEW);
+        assertThat(NextAction.resolve(TicketStatus.RESOLVED, SlaState.MET, true)).isEqualTo(NextAction.ARCHIVE);
         assertThat(NextAction.resolve(TicketStatus.CLOSED, SlaState.MET, true)).isNull();
     }
 
-    @ParameterizedTest
-    @EnumSource(value = TicketStatus.class, names = {"NEW", "REOPENED"})
-    void aNewTicketWithNoGuideIsEscalated(TicketStatus status)
+    @org.junit.jupiter.api.Test
+    void aNewTicketWithNoGuideIsPickedUp()
     {
-        assertThat(NextAction.resolve(status, SlaState.ON_TRACK, false)).isEqualTo(NextAction.ESCALATE);
+        assertThat(NextAction.resolve(TicketStatus.NEW, SlaState.ON_TRACK, false)).isEqualTo(NextAction.PICK_UP_TICKET);
     }
 
     @ParameterizedTest

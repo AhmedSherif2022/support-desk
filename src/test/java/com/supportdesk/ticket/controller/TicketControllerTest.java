@@ -69,7 +69,7 @@ class TicketControllerTest
         Instant due = Instant.parse("2026-11-01T14:00:00Z");
         QueueResponse sample = new QueueResponse(
                 QueueChip.ALL,
-                Map.of("ALL", 2L, "AT_RISK", 2L, "CONFIRM_FIX", 0L, "AUTO_CREATED", 0L),
+                Map.of("ALL", 2L, "AT_RISK", 2L, "IN_REVIEW", 0L, "AUTO_CREATED", 0L),
                 List.of(
                         new QueueTicketResponse(1L, "#2002", "Locked out", "CIF-100101", "Ahmed Ali", null,
                                 "Authentication / Login Failed", null, "ERR_AUTH_503", null, TicketPriority.CRITICAL,
@@ -86,7 +86,7 @@ class TicketControllerTest
                 .andExpect(jsonPath("$.chip").value("ALL"))
                 .andExpect(jsonPath("$.counts.ALL").value(2))
                 .andExpect(jsonPath("$.counts.AT_RISK").value(2))
-                .andExpect(jsonPath("$.counts.CONFIRM_FIX").value(0))
+                .andExpect(jsonPath("$.counts.IN_REVIEW").value(0))
                 .andExpect(jsonPath("$.tickets[0].nextActionLabel").value("Start guide"))
                 .andExpect(jsonPath("$.tickets[0].number").value("#2002"))
                 .andExpect(jsonPath("$.tickets[1].number").value("#2001"));
@@ -97,12 +97,12 @@ class TicketControllerTest
     }
 
     @ParameterizedTest
-    @EnumSource(value = QueueChip.class, names = {"AT_RISK", "CONFIRM_FIX", "AUTO_CREATED"})
+    @EnumSource(value = QueueChip.class, names = {"AT_RISK", "IN_REVIEW", "AUTO_CREATED"})
     void agentCanFilterQueueBySlaChip(QueueChip chip) throws Exception
     {
         when(ticketQueryService.queue(chip)).thenReturn(new QueueResponse(
                 chip,
-                Map.of("ALL", 4L, "AT_RISK", 2L, "CONFIRM_FIX", 1L, "AUTO_CREATED", 0L),
+                Map.of("ALL", 4L, "AT_RISK", 2L, "IN_REVIEW", 1L, "AUTO_CREATED", 0L),
                 List.of()));
 
         mockMvc.perform(get("/api/tickets/queue").param("chip", chip.name()).with(loggedInAs(Role.AGENT)))

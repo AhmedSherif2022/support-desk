@@ -7,11 +7,11 @@ import java.util.Map;
 
 public record ApiError
         (
-        String code,
-        String message,
-        Map<String, String> fieldErrors,
-        String path,
-        Instant timestamp,
+        @Schema(description = "What went wrong, as a stable code to handle in code.", example = "TICKET_NOT_FOUND") String code,
+        @Schema(description = "What went wrong, in words to show the user.", example = "This ticket does not exist.") String message,
+        @Schema(description = "For VALIDATION_FAILED: one message per invalid field. Empty otherwise.", example = "{\"priority\": \"Choose the priority.\"}") Map<String, String> fieldErrors,
+        @Schema(description = "The request path.", example = "/api/tickets/2001") String path,
+        @Schema(description = "When the error happened.", example = "2026-11-16T10:00:00Z") Instant timestamp,
 
         @Schema(description = "Only when the request can be retried later (ACCOUNT_LOCKED): the earliest retry time.",
                 example = "2026-11-12T10:15:00Z", nullable = true)

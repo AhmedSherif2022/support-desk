@@ -88,7 +88,7 @@ public class TicketQueryService
         return switch (chip) {
             case ALL -> true;
             case AT_RISK -> ticket.slaState() == SlaState.AT_RISK || ticket.slaState() == SlaState.BREACHED;
-            case CONFIRM_FIX -> ticket.status() == TicketStatus.SRE_FIXED;
+            case IN_REVIEW -> ticket.status() == TicketStatus.SRE_FIXED || ticket.status() == TicketStatus.IN_REVIEW;
             case AUTO_CREATED -> ticket.origin() == TicketOrigin.AUTO_CREATED;
         };
     }
@@ -103,8 +103,8 @@ public class TicketQueryService
     }
 
     /**
-     * "Confirm fix" tickets first (the customer is waiting for a call), paused tickets last (nothing to do yet),
-     * and in between the highest percent used first, then the least time left, then id.
+     * Paused tickets last (nothing to do yet); otherwise the highest percent used first, then the least time
+     * left, then id.
      */
     private static Comparator<QueueTicketResponse> riskOrder()
     {
@@ -116,9 +116,6 @@ public class TicketQueryService
 
     private static int band(QueueTicketResponse ticket)
     {
-        if (ticket.status() == TicketStatus.SRE_FIXED) {
-            return 0;
-        }
-        return ticket.paused() ? 2 : 1;
+        return ticket.paused() ? 1 : 0;
     }
 }

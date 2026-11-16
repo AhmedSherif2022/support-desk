@@ -7,6 +7,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.emptyOrNullString;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -24,7 +30,7 @@ class SupportDeskApplicationTests
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tags[*].name", containsInAnyOrder("Audit", "Auth", "Customers", "Tickets",
-                        "Guides", "Guide runs")))
+                        "Guides", "Guide runs", "Ticket review")))
                 .andExpect(jsonPath("$.paths['/api/auth/login'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/audit/logs'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/customers/{cif}'].get").exists())
@@ -33,13 +39,37 @@ class SupportDeskApplicationTests
                 .andExpect(jsonPath("$.paths['/api/tickets/precheck'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/tickets/queue'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/tickets/{number}'].get").exists())
-                .andExpect(jsonPath("$.paths['/api/tickets/{number}/status'].patch").exists())
+                .andExpect(jsonPath("$.paths['/api/tickets/{number}/steps'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/review/tickets'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/review/tickets/{number}/steps'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/guides/recommended'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/guide-runs'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/guide-runs/{id}'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/guide-runs/{id}/answers'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/guide-runs/{id}/answers/{position}'].delete").exists())
                 .andExpect(jsonPath("$.components.schemas.QueueResponse").exists())
+                // agent APIs: every enum they expose is one shared, described schema; no backlog ids in titles
+                .andExpect(jsonPath("$.components.schemas['TicketPriority','SlaState','TicketOrigin','Platform','Segment','EnrollmentStatus','QueueChip','GuideRunStatus','OutcomeType','Role','AuditAction'].description", everyItem(not(emptyOrNullString()))))
+                .andExpect(jsonPath("$.components.schemas.QueueTicketResponse.properties.slaState['$ref']")
+                        .value("#/components/schemas/SlaState"))
+                .andExpect(jsonPath("$.paths['/api/customers/search'].get.summary").value("Search customers"))
+                .andExpect(jsonPath("$.paths['/api/guide-runs/{id}'].get.parameters[0].description").exists())
+                .andExpect(jsonPath("$.components.schemas.DiagnosisDto.properties.summary.example")
+                        .value("3 failed LOGIN events with ERR_AUTH_503 on AUTHENTICATION in the last 6 hours."))
+                .andExpect(jsonPath("$.paths['/api/tickets'].get.parameters[?(@.name == 'page')].schema.type")
+                        .value(hasItem("integer")))
+                .andExpect(jsonPath("$.paths['/api/tickets/categories'].get.summary").value("Ticket categories"))
+                .andExpect(jsonPath("$.components.schemas.TicketDto.properties.activeGuideRunId").exists())
+                // the step machine: one shared schema per enum, each step described with its move
+                .andExpect(jsonPath("$.components.schemas.TicketStep.enum", hasSize(15)))
+                .andExpect(jsonPath("$.components.schemas.TicketStep.description",
+                        containsString("`SEND_TO_REVIEW`: SRE_FIXED → IN_REVIEW")))
+                .andExpect(jsonPath("$.components.schemas.TicketStatus.enum", hasItem("IN_REVIEW")))
+                .andExpect(jsonPath("$.components.schemas.TicketDto.properties.availableSteps.items['$ref']")
+                        .value("#/components/schemas/TicketStep"))
+                .andExpect(jsonPath("$.paths['/api/tickets/{number}/steps'].post.requestBody.content['application/json'].examples['Pick up ticket']").exists())
+                .andExpect(jsonPath("$.paths['/api/tickets/{number}/steps'].post.responses['422'].content['*/*'].examples['Not your step']").exists())
+                .andExpect(jsonPath("$.paths['/api/review/tickets/{number}/steps'].post.responses['422'].content['*/*'].examples['No reason']").exists())
                 .andExpect(jsonPath("$.components.schemas.QueueTicketResponse").exists());
     }
 }

@@ -37,3 +37,7 @@ build/
 .env
 .env.local
 .env.*.local
+
+### API doc reviews: generated exports and EGM review reports ###
+docs/*-api.md
+docs/*-review/

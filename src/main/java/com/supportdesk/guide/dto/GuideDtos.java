@@ -45,63 +45,65 @@ public final class GuideDtos
     public record GuideRunDto(
             @Schema(example = "17") Long id,
             @Schema(example = "#2002") String ticketNumber,
-            Long guideId,
-            String guideTitle,
-            @Schema(description = "The version this run is pinned to (E4-S4).", example = "2") int version,
-            GuideRunStatus status,
+            @Schema(example = "3") Long guideId,
+            @Schema(example = "Login failed: server error") String guideTitle,
+            @Schema(description = "The version this run is pinned to.", example = "2") int version,
+            @Schema(example = "IN_PROGRESS") GuideRunStatus status,
             @Schema(description = "Answers so far, first to last.") List<AnsweredStepDto> path,
             @Schema(description = "Null once an outcome is reached.", nullable = true) CurrentStepDto currentStep,
             @Schema(description = "Set once the answers lead to an outcome.", nullable = true) OutcomeDto outcome,
-            Instant startedAt,
-            String startedBy)
+            @Schema(example = "2026-11-16T10:35:00Z") Instant startedAt,
+            @Schema(description = "Full name of the agent who started it.", example = "Mona") String startedBy)
     {
     }
 
     public record AnsweredStepDto(
             @Schema(description = "1-based. DELETE .../answers/{position} goes back to this step.", example = "1") int position,
-            String stepKey,
-            String question,
-            String answerKey,
-            String answerLabel)
+            @Schema(example = "app-version") String stepKey,
+            @Schema(example = "Is the app on the latest version?") String question,
+            @Schema(example = "yes") String answerKey,
+            @Schema(example = "Yes") String answerLabel)
     {
     }
 
     public record CurrentStepDto(
-            String stepKey,
-            String question,
-            List<OptionDto> options,
+            @Schema(description = "Send this as stepKey when answering.", example = "other-device") String stepKey,
+            @Schema(example = "Does login work on another device?") String question,
+            @Schema(description = "The answers to choose from; send one key as answerKey.") List<OptionDto> options,
             @Schema(description = "Set when the step has a hint for the ticket's error code.", nullable = true) HintDto hint,
             @Schema(description = "This step's number.", example = "2") int stepNumber,
-            @Schema(description = "The most steps this run can take from here.", example = "3") int maxSteps)
+            @Schema(description = "Steps on the longest path through this step, counting the ones already answered: "
+                    + "the N in \"Step 2 of N\". It can drop as answers rule out longer paths.", example = "3") int maxSteps)
     {
     }
 
-    public record OptionDto(String key, String label)
+    public record OptionDto(@Schema(example = "no") String key, @Schema(example = "No") String label)
     {
     }
 
     public record HintDto(
             @Schema(description = "The answer the customer's logs point to.", example = "no") String answerKey,
-            String text)
+            @Schema(example = "The customer's logs show ERR_AUTH_503 on mobile only.") String text)
     {
     }
 
     public record OutcomeDto(
-            String key,
-            OutcomeType type,
-            String result,
+            @Schema(example = "escalate-sre") String key,
+            @Schema(example = "ESCALATE") OutcomeType type,
+            @Schema(description = "What the agent found.", example = "Login fails everywhere with no known incident.") String result,
             @Schema(description = "What to say to the customer.") String customerScript)
     {
     }
 
     public record CompleteRunRequest(
-            @Schema(example = "Customer updated the app and logged in.")
+            @Schema(description = "Optional agent notes, saved on the run (no endpoint returns them). Send {} when "
+                    + "there are none.", example = "Customer updated the app and logged in.")
             @Size(max = 2000, message = "Notes can be at most 2000 characters.") String notes)
     {
     }
 
     public record CompletedRunDto(
-            GuideRunDto run,
+            @Schema(description = "The run, now COMPLETED.") GuideRunDto run,
             @Schema(example = "RESOLVED") OutcomeType outcomeType,
             @Schema(description = "The ticket's status after the outcome.", example = "RESOLVED")
             com.supportdesk.ticket.enums.TicketStatus ticketStatus,

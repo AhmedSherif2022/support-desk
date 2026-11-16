@@ -101,13 +101,13 @@ class GuideRunIntegrationTest
     }
 
     @Test
-    void withNoGuideForThePlatformOrCategoryTheNextStepIsEscalate() throws Exception
+    void withNoGuideForThePlatformOrCategoryTheNextStepIsPickUpTicket() throws Exception
     {
         for (long ticket : List.of(createTicket(SARA, "APP_CRASHING", "MOBILE"),
                                    createTicket(SARA, "LOGIN_FAILED", "BRANCH"))) {
             recommended(ticket).andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(0)));
-            ticket(ticket).andExpect(jsonPath("$.nextAction").value("ESCALATE"))
-                    .andExpect(jsonPath("$.nextActionLabel").value("Escalate"));
+            ticket(ticket).andExpect(jsonPath("$.nextAction").value("PICK_UP_TICKET"))
+                    .andExpect(jsonPath("$.nextActionLabel").value("Pick up ticket"));
         }
     }
 
@@ -145,7 +145,8 @@ class GuideRunIntegrationTest
     {
         long ticket = createTicket(SARA, "LOGIN_FAILED", "MOBILE");
         long guide = guideId("Login failed: server error");
-        start(ticket, guide).andExpect(status().isCreated());
+        long run = startRun(ticket, guide);
+        ticket(ticket).andExpect(jsonPath("$.activeGuideRunId").value(run));          // found again after a reload
 
         start(ticket, guide).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("GUIDE_RUN_ALREADY_ACTIVE"));
@@ -157,10 +158,11 @@ class GuideRunIntegrationTest
         long ticket = createTicket(SARA, "LOGIN_FAILED", "MOBILE");
         long guide = guideId("Login failed: server error");
         long first = startRun(ticket, guide);
-        move(ticket, "RESOLVED").andExpect(status().isOk());
-        move(ticket, "REOPENED").andExpect(status().isOk());
+        step(ticket, "REQUEST_DETAILS").andExpect(status().isOk())
+                .andExpect(jsonPath("$.activeGuideRunId").doesNotExist());              // stale outside Troubleshooting
 
-        start(ticket, guide).andExpect(status().isCreated());
+        start(ticket, guide).andExpect(status().isCreated());                    // Details received, then a new run
+        ticket(ticket).andExpect(jsonPath("$.status").value("TROUBLESHOOTING"));
         run(first).andExpect(jsonPath("$.status").value("COMPLETED"));
         answer(first, "app-version", "yes").andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("GUIDE_RUN_NOT_ACTIVE"));
@@ -180,7 +182,8 @@ class GuideRunIntegrationTest
     void aResolvedTicketCannotStartAGuideAndNothingIsRecorded() throws Exception
     {
         long ticket = createTicket(SARA, "LOGIN_FAILED", "MOBILE");
-        move(ticket, "RESOLVED").andExpect(status().isOk());
+        step(ticket, "PICK_UP_TICKET").andExpect(status().isOk());
+        step(ticket, "APPLY_FIX").andExpect(status().isOk());
 
         start(ticket, guideId("Login failed: server error")).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("INVALID_STATUS_TRANSITION"));
@@ -301,10 +304,10 @@ class GuideRunIntegrationTest
         return mockMvc.perform(get("/api/tickets/" + ticket).header(HttpHeaders.AUTHORIZATION, token));
     }
 
-    private ResultActions move(long ticket, String to) throws Exception
+    private ResultActions step(long ticket, String step) throws Exception
     {
-        return mockMvc.perform(patch("/api/tickets/" + ticket + "/status").header(HttpHeaders.AUTHORIZATION, token)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"" + to + "\"}"));
+        return mockMvc.perform(post("/api/tickets/" + ticket + "/steps").header(HttpHeaders.AUTHORIZATION, token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"step\":\"" + step + "\"}"));
     }
 
     private ResultActions start(long ticket, long guide) throws Exception

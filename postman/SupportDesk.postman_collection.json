@@ -407,7 +407,7 @@
             "pm.test('200 OK', () => pm.response.to.have.status(200));",
             "const paths = pm.response.json().paths;",
             "pm.test('Documents auth, customer, ticket, and queue endpoints', () => {",
-            "  pm.expect(paths).to.include.all.keys('/api/auth/login', '/api/customers/{cif}', '/api/tickets', '/api/tickets/queue', '/api/tickets/{number}', '/api/tickets/{number}/status');",
+            "  pm.expect(paths).to.include.all.keys('/api/auth/login', '/api/customers/{cif}', '/api/tickets', '/api/tickets/queue', '/api/tickets/{number}', '/api/tickets/{number}/steps', '/api/review/tickets');",
             "});"
           ] } }],
           "request": {
@@ -433,7 +433,7 @@
                 "exec": [
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
                   "const body = pm.response.json();",
-                  "pm.test('Counts every chip', () => pm.expect(body.counts).to.have.keys('ALL', 'AT_RISK', 'CONFIRM_FIX', 'AUTO_CREATED'));",
+                  "pm.test('Counts every chip', () => pm.expect(body.counts).to.have.keys('ALL', 'AT_RISK', 'IN_REVIEW', 'AUTO_CREATED'));",
                   "pm.test('Every row names one next action and one SLA value', () => body.tickets.forEach(t => {",
                   "  pm.expect(t.nextActionLabel).to.be.a('string');",
                   "  pm.expect(t.slaLabel).to.be.a('string');",
@@ -940,7 +940,7 @@
           }
         },
         {
-          "name": "Start troubleshooting",
+          "name": "Pick up ticket",
           "event": [
             {
               "listen": "test",
@@ -948,14 +948,16 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
-                  "pm.test('Next step: Escalate', () => pm.expect(pm.response.json().nextActionLabel).to.eql('Escalate'));"
+                  "pm.test('Next step: Escalate', () => pm.expect(pm.response.json().nextActionLabel).to.eql('Escalate'));",
+                  "pm.test('Now in Troubleshooting', () => pm.expect(pm.response.json().status).to.eql('TROUBLESHOOTING'));",
+                  "pm.test('Steps open now', () => pm.expect(pm.response.json().availableSteps).to.have.members(['REQUEST_DETAILS', 'APPLY_FIX']));"
                 ]
               }
             }
           ],
           "request": {
-            "method": "PATCH",
-            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/status",
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/steps",
             "header": [
               {
                 "key": "Content-Type",
@@ -964,13 +966,13 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"TROUBLESHOOTING\"\n}"
+              "raw": "{\n  \"step\": \"PICK_UP_TICKET\"\n}"
             },
-            "description": "Audited as TICKET_STATUS_CHANGED with before and after."
+            "description": "Audited as TICKET_STATUS_CHANGED with the step and the before and after status."
           }
         },
         {
-          "name": "Not allowed: close from troubleshooting",
+          "name": "Not allowed: archive from troubleshooting",
           "event": [
             {
               "listen": "test",
@@ -984,8 +986,8 @@
             }
           ],
           "request": {
-            "method": "PATCH",
-            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/status",
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/steps",
             "header": [
               {
                 "key": "Content-Type",
@@ -994,13 +996,63 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"CLOSED\"\n}"
+              "raw": "{\n  \"step\": \"ARCHIVE\"\n}"
             },
-            "description": "Audited as TICKET_TRANSITION_REJECTED, even though the change is rolled back."
+            "description": "Archive starts from Resolved. Audited as TICKET_TRANSITION_REJECTED, even though the change is rolled back."
           }
         },
         {
-          "name": "Wait on customer (SLA pauses)",
+          "name": "Not yours: hand over (a system step)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable', () => pm.response.to.have.status(422));",
+                  "pm.test('code STEP_NOT_YOURS', () => pm.expect(pm.response.json().code).to.eql('STEP_NOT_YOURS'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/steps",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step\": \"HAND_OVER\"\n}"
+            },
+            "description": "Hand over, SRE accepts, Deploy fix, Send to review and Fix failed are system steps (Azure DevOps, Epic 5). Guide and reviewer steps are refused the same way."
+          }
+        },
+        {
+          "name": "Review queue is for reviewers only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden for an agent', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/review/tickets",
+            "header": [],
+            "description": "GET /api/review/tickets and POST /api/review/tickets/{number}/steps (REVIEWER_APPROVES, REVIEWER_REJECTS with a reason) belong to the Reviewer. Tickets reach In Review through Epic 5's system steps."
+          }
+        },
+        {
+          "name": "Request details (SLA pauses)",
           "event": [
             {
               "listen": "test",
@@ -1015,8 +1067,8 @@
             }
           ],
           "request": {
-            "method": "PATCH",
-            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/status",
+            "method": "POST",
+            "url": "{{baseUrl}}/api/tickets/{{ticketNumber}}/steps",
             "header": [
               {
                 "key": "Content-Type",
@@ -1025,7 +1077,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"WAITING_ON_CUSTOMER\"\n}"
+              "raw": "{\n  \"step\": \"REQUEST_DETAILS\"\n}"
             }
           }
         },
@@ -1040,7 +1092,7 @@
                   "pm.test('200 OK', () => pm.response.to.have.status(200));",
                   "const t = pm.response.json();",
                   "pm.test('One SLA value and one next step', () => { pm.expect(t.slaLabel).to.eql('Paused'); pm.expect(t.nextActionLabel).to.eql('Resume'); });",
-                  "pm.test('Agent choices from here', () => pm.expect(t.allowedNextStatuses).to.include('TROUBLESHOOTING'));"
+                  "pm.test('Agent steps from here', () => pm.expect(t.availableSteps).to.eql(['DETAILS_RECEIVED']));"
                 ]
               }
             }
@@ -2085,7 +2137,7 @@
                 "exec": [
                   "pm.test('201 Created', () => pm.response.to.have.status(201));",
                   "const t = pm.response.json();",
-                  "pm.test('Pinned next step', () => pm.expect(t.nextActionLabel).to.eql('Escalate'));",
+                  "pm.test('Pinned next step', () => pm.expect(t.nextActionLabel).to.eql('Pick up ticket'));",
                   "pm.collectionVariables.set('noGuideTicket', t.number.replace('#', ''));"
                 ]
               }

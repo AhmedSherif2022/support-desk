@@ -91,7 +91,7 @@ class TicketQueryServiceTest
         assertThat(queue.counts())
                 .containsEntry("ALL", 4L)
                 .containsEntry("AT_RISK", 2L)          // at risk or breached
-                .containsEntry("CONFIRM_FIX", 0L)
+                .containsEntry("IN_REVIEW", 0L)
                 .containsEntry("AUTO_CREATED", 0L)
                 .hasSize(4);
     }
@@ -108,10 +108,10 @@ class TicketQueryServiceTest
     }
 
     @Test
-    void confirmFixTicketsComeFirstAndAutoCreatedChipFilters()
+    void inReviewAndAutoCreatedChipsFilter()
     {
         Ticket confirm = open(5L, 2005L, TicketPriority.LOW, NOW.minus(Duration.ofHours(1)));
-        confirm.moveTo(TicketStatus.SRE_FIXED, NOW);
+        confirm.moveTo(TicketStatus.IN_REVIEW, NOW);
         Ticket auto = new Ticket(2006L, sara, paymentFailed, "Auto", "description", TicketPriority.MEDIUM,
                 TicketOrigin.AUTO_CREATED, Platform.WEB, "ERR_AUTH_503", "TRX-2026-01111", mona,
                 NOW.minus(Duration.ofHours(1)), slaService.dueAt(TicketPriority.MEDIUM, NOW.minus(Duration.ofHours(1))));
@@ -120,12 +120,11 @@ class TicketQueryServiceTest
                 open(3L, 2003L, TicketPriority.CRITICAL, NOW.minus(Duration.ofMinutes(180))), confirm, auto));
 
         QueueResponse all = query.queue(QueueChip.ALL);
-        assertThat(all.tickets()).extracting(QueueTicketResponse::number).first().isEqualTo("#2005");
-        assertThat(all.tickets().get(0).nextActionLabel()).isEqualTo("Call & confirm");
-        assertThat(all.counts()).containsEntry("CONFIRM_FIX", 1L).containsEntry("AUTO_CREATED", 1L);
+        assertThat(all.counts()).containsEntry("IN_REVIEW", 1L).containsEntry("AUTO_CREATED", 1L);
 
-        assertThat(query.queue(QueueChip.CONFIRM_FIX).tickets()).extracting(QueueTicketResponse::number)
-                .containsExactly("#2005");
+        assertThat(query.queue(QueueChip.IN_REVIEW).tickets()).singleElement()
+                .extracting(QueueTicketResponse::number, QueueTicketResponse::nextActionLabel)
+                .containsExactly("#2005", "Wait for review");
         assertThat(query.queue(QueueChip.AUTO_CREATED).tickets()).singleElement()
                 .extracting(QueueTicketResponse::number, QueueTicketResponse::origin, QueueTicketResponse::errorCode)
                 .containsExactly("#2006", TicketOrigin.AUTO_CREATED, "ERR_AUTH_503");
