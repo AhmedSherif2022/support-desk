@@ -145,7 +145,7 @@ public class TicketService
 
 
 
-    /** POST /api/tickets/{number}/steps (agent) and /api/review/tickets/{number}/steps (reviewer). */
+    /** POST /api/tickets/{number}/steps (agent) and /api/review/tickets/{number}/steps (agent or reviewer). */
     @Transactional
     public TicketDto takeStep(Long ticketNumber, TakeStepRequest request)
     {
@@ -181,7 +181,7 @@ public class TicketService
                 from, to, step, isBlank(reason) ? null : reason.trim(), userId));
     }
 
-    /** The Reviewer's queue: SRE fixes waiting for review, oldest first. */
+    /** The review queue: SRE fixes waiting for review (agent or reviewer), oldest first. */
     @Transactional(readOnly = true)
     public List<TicketDto> inReview()
     {
@@ -224,8 +224,10 @@ public class TicketService
         // Outside Troubleshooting an unfinished run is stale: starting a guide abandons it.
         Long activeRun = ticket.getStatus() != TicketStatus.TROUBLESHOOTING ? null
                 : guideRuns.findByTicketIdAndCompletedAtIsNull(ticket.getId()).map(GuideRun::getId).orElse(null);
-        return TicketMapper.toDto(ticket, stepMachine.available(ticket.getStatus(), currentActor()), slaService.evaluate(ticket),
+        StepActor actor = currentActor();
+        TicketDto dto = TicketMapper.toDto(ticket, stepMachine.available(ticket.getStatus(), actor), slaService.evaluate(ticket),
                 guideMatcher.hasGuideFor(ticket), activeRun);
+        return actor == StepActor.REVIEWER ? dto.withoutCustomer() : dto;   // E1-S2: the Reviewer never sees customer data
     }
 
     private StepActor currentActor()

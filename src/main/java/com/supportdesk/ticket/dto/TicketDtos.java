@@ -101,8 +101,10 @@ public final class TicketDtos
             @Schema(example = "#2001") String number,
             @Schema(example = "Card payment declined") String title,
             @Schema(description = "What the customer reported.", example = "Card payment fails at checkout.") String description,
-            @Schema(example = "CIF-100245") String customerCif,
-            @Schema(example = "Sara Mahmoud") String customerName,
+            @Schema(description = "The customer's CIF. Null for a Reviewer: Guide Admin roles never see customer data (E1-S2).",
+                    example = "CIF-100245", types = {"string", "null"}) String customerCif,
+            @Schema(description = "The customer's name. Null for a Reviewer (E1-S2).",
+                    example = "Sara Mahmoud", types = {"string", "null"}) String customerName,
             @Schema(example = "Payments / Payment Failed") String category,
             @Schema(example = "PAYMENT_FAILED") String categoryCode,
             @Schema(example = "HIGH") TicketPriority priority,
@@ -115,10 +117,11 @@ public final class TicketDtos
             @Schema(example = "AT_RISK") SlaState slaState,
             @Schema(description = "When the SLA target runs out. Time spent paused moves it later.", example = "2026-11-16T17:30:00Z") Instant slaDueAt,
             @Schema(description = "Steps the current user can take on the ticket now: its action buttons. "
-                    + "Empty when only someone else can move it (a reviewer, a guide or the system).",
+                    + "In Review, both the agent and the reviewer get REVIEWER_APPROVES and REVIEWER_REJECTS. "
+                    + "Empty when only someone else can move it (a guide or the system).",
                     example = "[\"REQUEST_DETAILS\", \"APPLY_FIX\"]")
             List<TicketStep> availableSteps,
-            @Schema(description = "Times a Reviewer rejected the SRE fix (each move into REOPENED).", example = "0")
+            @Schema(description = "Times the SRE fix was rejected in review (each move into REOPENED).", example = "0")
             int reopenCount,
             @Schema(example = "2026-11-16T09:30:00Z") Instant createdAt,
             @Schema(description = "SLA meter: percent of the target used.", example = "81") int slaPercentUsed,
@@ -134,5 +137,13 @@ public final class TicketDtos
                     + "(starting a guide then abandons the old run).", example = "17", types = {"integer", "null"})
             Long activeGuideRunId)
     {
+        /** The same ticket without the customer's CIF and name: what a Reviewer gets (E1-S2). */
+        public TicketDto withoutCustomer()
+        {
+            return new TicketDto(id, number, title, description, null, null, category, categoryCode, priority,
+                    status, origin, platform, errorCode, reference, assignedAgent, slaState, slaDueAt,
+                    availableSteps, reopenCount, createdAt, slaPercentUsed, slaLabel, nextAction,
+                    nextActionLabel, activeGuideRunId);
+        }
     }
 }

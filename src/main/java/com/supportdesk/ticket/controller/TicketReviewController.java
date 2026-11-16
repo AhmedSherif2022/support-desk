@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-@RestController
-@PreAuthorize("hasRole('REVIEWER')")
-@RequiredArgsConstructor
+@RestController                                        // Spring: handles HTTP requests and returns JSON
+@PreAuthorize("hasAnyRole('AGENT', 'REVIEWER')")       // Spring Security: Agent and Reviewer can review; Guide Admin gets 403
+@RequiredArgsConstructor                               // Lombok: constructor for the final fields
 public class TicketReviewController implements TicketReviewApi
 {
     private final TicketService ticketService;
@@ -20,6 +20,12 @@ public class TicketReviewController implements TicketReviewApi
     public List<TicketDto> inReview()
     {
         return ticketService.inReview();
+    }
+
+    @Override
+    public TicketDto get(Long number)
+    {
+        return ticketService.get(number);              // CHECK: the same method TicketController uses to return one TicketDto
     }
 
     @Override
