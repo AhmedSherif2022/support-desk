@@ -26,7 +26,7 @@ public interface GuideApi
     @GetMapping("/recommended")
     @Operation(summary = "Recommend guides for a ticket",
             description = "Live guides whose platform matches the ticket and whose error code or category matches, "
-                    + "error-code matches first. An empty list means no guide fits, and the ticket's next step is Escalate.")
+                    + "error-code matches first. An empty list means no guide fits: follow the ticket's nextAction instead.")
     @ApiResponse(responseCode = "200", description = "Matching guides, best first (may be empty)")
     @ApiResponse(responseCode = "400", description = "REQUEST_ERROR: ticket is missing or not a number",
             content = @Content(schema = @Schema(implementation = ApiError.class)))

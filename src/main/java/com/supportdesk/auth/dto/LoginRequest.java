@@ -11,8 +11,8 @@ public record LoginRequest
         @Size(max = 100, message = "Username is too long.")
         String username,
 
-        @Schema(description = "SHA-256 of the password as 64 hex characters, made in the browser, never the password "
-                + "itself. The local profile also accepts the plain password.",
+        @Schema(description = "SHA-256 of the password as 64 hex characters, made in the browser so the password itself "
+                + "is never sent. Only the local profile also accepts the plain password.",
                 example = "a109e36947ad56de1dca1cc49f0ef8ac9ad9a7b1aa0df41fb3c4cb73c1ff01ea")   // SHA-256 of the local seed password Password123!
         @NotBlank(message = "Password is required.")
         @Size(max = 200, message = "Password is too long.")

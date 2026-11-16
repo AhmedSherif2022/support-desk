@@ -4,9 +4,9 @@ import com.supportdesk.auth.entity.User;
 import com.supportdesk.ticket.enums.NextAction;
 import com.supportdesk.ticket.dto.TicketDtos.TicketDto;
 import com.supportdesk.ticket.entity.Ticket;
-import com.supportdesk.ticket.enums.TicketStatus;
+import com.supportdesk.ticket.enums.TicketStep;
 
-import java.util.Set;
+import java.util.List;
 
 public final class TicketMapper
 {
@@ -14,16 +14,17 @@ public final class TicketMapper
     {
     }
 
-    public static TicketDto toDto(Ticket t, Set<TicketStatus> allowedNext, SlaSnapshot sla, boolean guideAvailable)
+    public static TicketDto toDto(Ticket t, List<TicketStep> availableSteps, SlaSnapshot sla, boolean guideAvailable,
+                                  Long activeGuideRunId)
     {
         NextAction next = NextAction.resolve(t.getStatus(), sla.state(), guideAvailable);
         return new TicketDto(t.getId(), t.displayNumber(), t.getTitle(), t.getDescription(),
                 t.getCustomer().getCif(), t.getCustomer().getFullName(),
                 t.getCategory().fullName(), t.getCategory().getCode(), t.getPriority(),
                 t.getStatus(), t.getOrigin(), t.getPlatform(), t.getErrorCode(), t.getReference(),
-                name(t.getAssignedAgent()), sla.state(), t.getSlaDueAt(), allowedNext,
+                name(t.getAssignedAgent()), sla.state(), t.getSlaDueAt(), availableSteps,
                 t.getReopenCount(), t.getCreatedAt(),
-                sla.percentUsed(), sla.label(), next, next == null ? null : next.label());
+                sla.percentUsed(), sla.label(), next, next == null ? null : next.label(), activeGuideRunId);
     }
 
     private static String name(User user)

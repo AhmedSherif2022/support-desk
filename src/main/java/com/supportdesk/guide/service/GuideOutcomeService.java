@@ -16,7 +16,8 @@ import com.supportdesk.guide.exception.GuideOutcomeNotReachedException;
 import com.supportdesk.guide.exception.GuideRunNotFoundException;
 import com.supportdesk.guide.repository.GuideRunRepository;
 import com.supportdesk.ticket.entity.Ticket;
-import com.supportdesk.ticket.enums.TicketStatus;
+import com.supportdesk.ticket.enums.StepActor;
+import com.supportdesk.ticket.enums.TicketStep;
 import com.supportdesk.ticket.listener.TicketAuditListener;
 import com.supportdesk.ticket.service.SlaService;
 import com.supportdesk.ticket.service.TicketService;
@@ -63,9 +64,9 @@ public class GuideOutcomeService
 
 
         switch (outcome.type()) {
-            case RESOLVED -> ticketService.moveStatus(ticket, TicketStatus.RESOLVED, agent);
+            case RESOLVED -> ticketService.applyStep(ticket, TicketStep.GUIDE_SOLVED, StepActor.GUIDE, agent, null);
             case FOLLOW_UP -> {
-                ticketService.moveStatus(ticket, TicketStatus.WAITING_ON_CUSTOMER, agent);
+                ticketService.applyStep(ticket, TicketStep.GUIDE_FOLLOW_UP, StepActor.GUIDE, agent, null);
                 // SLA clock stops while we wait for the customer (see the note below about pause).
                 if (!ticket.isSlaPaused()) {
                     slaService.pause(ticket);
@@ -73,7 +74,7 @@ public class GuideOutcomeService
             }
             case ESCALATE ->
                 // TODO (E5 Azure DevOps): open the escalation dialog and create the work item with this run's path.
-                    ticketService.moveStatus(ticket, TicketStatus.ESCALATED, agent);
+                    ticketService.applyStep(ticket, TicketStep.GUIDE_HAND_OVER, StepActor.GUIDE, agent, null);
         }
 
 

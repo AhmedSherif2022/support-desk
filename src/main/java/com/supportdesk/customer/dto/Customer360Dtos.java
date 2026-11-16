@@ -27,7 +27,7 @@ public final class Customer360Dtos
     // ---- E2-S1 search ----
 
     public record CustomerSearchResponse(
-            List<CustomerSearchResult> results,
+            @Schema(description = "Matching customers, masked. Empty when nothing matched.") List<CustomerSearchResult> results,
             @Schema(description = "Set only when nothing matched.", example = "No match. Check the digits and the ID type.")
             String message)
     {
@@ -76,7 +76,8 @@ public final class Customer360Dtos
             @Schema(description = "Look-back window in hours.", example = "6") int windowHours,
             @Schema(example = "true") boolean hasFailures,
             @Schema(description = "The most frequent failure, or null when there were none.") FailureSummary topFailure,
-            @Schema(example = "3 failed LOGIN events with ERR_AUTH_503 on AUTHENTICATION in the last 6 hours.")
+            @Schema(description = "One sentence for the diagnosis card, naming the top failure.",
+                    example = "\"3 failed LOGIN events with ERR_AUTH_503 on AUTHENTICATION in the last 6 hours.\"")   // quoted, or swagger-core reads the leading 3 as a number
             String summary,
             @Schema(description = "Services with no failures in the window, so the agent can rule them out.",
                     example = "[\"OTP\", \"PAYMENTS\", \"TRANSFERS\"]")
@@ -89,8 +90,8 @@ public final class Customer360Dtos
             @Schema(example = "LOGIN") String eventType,
             @Schema(example = "ERR_AUTH_503") String errorCode,
             @Schema(example = "AUTHENTICATION") String service,
-            Instant firstAt,
-            Instant lastAt)
+            @Schema(description = "When this failure first happened in the time window.", example = "2026-11-16T09:12:00Z") Instant firstAt,
+            @Schema(description = "When it last happened.", example = "2026-11-16T10:41:00Z") Instant lastAt)
     {
     }
 
@@ -98,12 +99,12 @@ public final class Customer360Dtos
 
     public record ActivityResponse(
             @Schema(example = "LAST_6_HOURS") ActivityRange range,
-            Instant from,
-            Instant to,
+            @Schema(description = "Start of the time range shown.", example = "2026-11-16T04:41:00Z") Instant from,
+            @Schema(description = "End of the time range shown.", example = "2026-11-16T10:41:00Z") Instant to,
             @Schema(example = "true") boolean failuresOnly,
             @Schema(description = "Counts for the time range and result filter, before the platform and service chips.")
             ActivityCounts counts,
-            List<ActivityEventDto> events,
+            @Schema(description = "Matching events, newest first.") List<ActivityEventDto> events,
             @Schema(description = "Set only when no event matches.",
                     example = "No events match. Widen the time range, include successes, or clear the platform and service chips.")
             String emptyMessage)
@@ -119,7 +120,7 @@ public final class Customer360Dtos
     }
 
     public record ActivityEventDto(
-            Instant time,
+            @Schema(description = "When it happened.", example = "2026-11-16T10:41:00Z") Instant time,
             @Schema(example = "LOGIN") String eventType,
             @Schema(example = "MOBILE") Platform platform,
             @Schema(example = "AUTHENTICATION") String service,
@@ -134,7 +135,7 @@ public final class Customer360Dtos
     public record CustomerTicketsDto(
             @Schema(description = "More than one ticket in the last 20 days.", example = "true") boolean repeatCaller,
             @Schema(example = "Repeat caller: 3 tickets in the last 20 days.") String repeatCallerNote,
-            List<CustomerTicketRow> tickets)
+            @Schema(description = "The customer's tickets, newest first.") List<CustomerTicketRow> tickets)
     {
     }
 
@@ -146,7 +147,7 @@ public final class Customer360Dtos
             @Schema(example = "TROUBLESHOOTING") TicketStatus status,
             @Schema(example = "HIGH") TicketPriority priority,
             @Schema(example = "AT_RISK") SlaState slaState,
-            Instant createdAt)
+            @Schema(example = "2026-11-16T09:30:00Z") Instant createdAt)
     {
     }
 }

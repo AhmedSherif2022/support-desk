@@ -28,9 +28,9 @@ public final class CustomerDtos
     public record VerificationStatusDto(
             @Schema(example = "CIF-100245") String cif,
             @Schema(example = "true") boolean verified,
-            Set<VerificationCheck> passedChecks,
-            Instant verifiedAt,
-            Instant expiresAt)
+            @Schema(description = "The checks that passed; empty when not verified.", example = "[\"DATE_OF_BIRTH\", \"MOBILE_ON_FILE\"]") Set<VerificationCheck> passedChecks,
+            @Schema(description = "When the caller was verified; null when not verified.", example = "2026-11-16T10:30:00Z") Instant verifiedAt,
+            @Schema(description = "When the verification lapses: 30 minutes after verifiedAt, unless the call is ended first. Null when not verified.", example = "2026-11-16T11:00:00Z") Instant expiresAt)
     {
     }
 

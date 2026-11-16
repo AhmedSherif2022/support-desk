@@ -7,7 +7,10 @@ import com.supportdesk.customer.enums.Platform;
 import com.supportdesk.customer.service.CallerVerificationService;
 import com.supportdesk.customer.service.CustomerLookupService;
 import com.supportdesk.ticket.config.TicketProperties;
-import com.supportdesk.ticket.dto.TicketDtos.ChangeStatusRequest;
+import com.supportdesk.auth.enums.Role;
+import com.supportdesk.auth.security.AuthenticatedUser;
+import com.supportdesk.ticket.dto.TicketDtos.TakeStepRequest;
+import com.supportdesk.ticket.enums.TicketStep;
 import com.supportdesk.ticket.dto.TicketDtos.CreateTicketRequest;
 import com.supportdesk.ticket.dto.TicketDtos.TicketDto;
 import com.supportdesk.ticket.enums.SlaState;
@@ -21,7 +24,7 @@ import com.supportdesk.ticket.event.TicketStatusChangedEvent;
 import com.supportdesk.ticket.event.TicketTransitionRejectedEvent;
 import com.supportdesk.ticket.exception.DuplicateTicketException;
 import com.supportdesk.ticket.exception.InvalidStatusTransitionException;
-import com.supportdesk.ticket.exception.StatusSetBySystemException;
+import com.supportdesk.ticket.exception.StepNotYoursException;
 import com.supportdesk.ticket.exception.TicketNotFoundException;
 import com.supportdesk.ticket.repository.TicketCategoryRepository;
 import com.supportdesk.ticket.repository.TicketRepository;
@@ -65,10 +68,11 @@ class TicketServiceTest
             TicketPriority.LOW, Duration.ofHours(72)))), clock);
 
     private final TicketService service = new TicketService(ticketRepository, categoryRepository,
-            new TicketValidator(), new TicketStatusMachine(), customerLookup, verificationService,
+            new TicketValidator(), new TicketStatusMachine(), new TicketStepMachine(), customerLookup, verificationService,
             currentUserService, slaService, events, clock,
             mock(com.supportdesk.customer.repository.CustomerActivityRepository.class),
-            mock(com.supportdesk.guide.service.GuideMatcher.class));
+            mock(com.supportdesk.guide.service.GuideMatcher.class),
+            mock(com.supportdesk.guide.repository.GuideRunRepository.class));
 
     private final Customer sara = mock(Customer.class);
     private final User mona = mock(User.class);
@@ -84,6 +88,7 @@ class TicketServiceTest
         when(customerLookup.getByCif("CIF-100245")).thenReturn(sara);
         when(categoryRepository.findByCodeIgnoreCase("OTP_NOT_RECEIVED")).thenReturn(Optional.of(otp));
         when(currentUserService.getCurrentUserEntity()).thenReturn(mona);
+        when(currentUserService.getCurrentUser()).thenReturn(new AuthenticatedUser(1L, "mona", Role.AGENT));
         when(ticketRepository.nextTicketNumber()).thenReturn(2100L);
     }
 
@@ -136,14 +141,14 @@ class TicketServiceTest
     }
 
     @Test
-    void changeStatusMovesTheTicketAndPublishesTheChange()
+    void aStepMovesTheTicketAndPublishesTheChange()
     {
         when(ticketRepository.findByTicketNumber(2001L)).thenReturn(Optional.of(ticket(TicketStatus.NEW)));
 
-        TicketDto dto = service.changeStatus(2001L, new ChangeStatusRequest(TicketStatus.RESOLVED, "fixed"));
+        TicketDto dto = service.takeStep(2001L, new TakeStepRequest(TicketStep.PICK_UP_TICKET, null));
 
-        assertThat(dto.status()).isEqualTo(TicketStatus.RESOLVED);
-        assertThat(dto.slaState()).isEqualTo(SlaState.MET);
+        assertThat(dto.status()).isEqualTo(TicketStatus.TROUBLESHOOTING);
+        assertThat(dto.availableSteps()).containsExactly(TicketStep.REQUEST_DETAILS, TicketStep.APPLY_FIX);
         verify(events).publishEvent(any(TicketStatusChangedEvent.class));
     }
 
@@ -152,18 +157,20 @@ class TicketServiceTest
     {
         when(ticketRepository.findByTicketNumber(2001L)).thenReturn(Optional.of(ticket(TicketStatus.CLOSED)));
 
-        assertThatThrownBy(() -> service.changeStatus(2001L, new ChangeStatusRequest(TicketStatus.RESOLVED, null)))
+        assertThatThrownBy(() -> service.takeStep(2001L, new TakeStepRequest(TicketStep.APPLY_FIX, null)))
                 .isInstanceOf(InvalidStatusTransitionException.class);
         verify(events).publishEvent(any(TicketTransitionRejectedEvent.class));
     }
 
     @Test
-    void agentCannotSetASystemStatus()
+    void agentCannotTakeSomeoneElsesStep()
     {
         when(ticketRepository.findByTicketNumber(2001L)).thenReturn(Optional.of(ticket(TicketStatus.NEW)));
 
-        assertThatThrownBy(() -> service.changeStatus(2001L, new ChangeStatusRequest(TicketStatus.ESCALATED, null)))
-                .isInstanceOf(StatusSetBySystemException.class);
+        for (TicketStep step : java.util.List.of(TicketStep.HAND_OVER, TicketStep.GUIDE_SOLVED, TicketStep.REVIEWER_APPROVES)) {
+            assertThatThrownBy(() -> service.takeStep(2001L, new TakeStepRequest(step, null)))
+                    .isInstanceOf(StepNotYoursException.class);
+        }
     }
 
     @Test

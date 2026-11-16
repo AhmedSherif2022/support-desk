@@ -4,10 +4,11 @@ import com.supportdesk.common.dto.PageResponse;
 import com.supportdesk.ticket.enums.QueueChip;
 import com.supportdesk.ticket.enums.TicketListView;
 import com.supportdesk.ticket.dto.QueueResponse;
-import com.supportdesk.ticket.dto.TicketDtos.ChangeStatusRequest;
+import com.supportdesk.ticket.dto.TicketDtos.CategoryDto;
 import com.supportdesk.ticket.dto.TicketDtos.CreateTicketRequest;
 import com.supportdesk.ticket.dto.TicketDtos.PrecheckDto;
 import com.supportdesk.ticket.dto.TicketDtos.PrecheckRequest;
+import com.supportdesk.ticket.dto.TicketDtos.TakeStepRequest;
 import com.supportdesk.ticket.dto.TicketDtos.TicketDto;
 import com.supportdesk.ticket.dto.TicketWorkspaceDtos.ContactDto;
 import com.supportdesk.ticket.dto.TicketWorkspaceDtos.ContactRequest;
@@ -22,6 +23,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 
 @RestController
@@ -38,6 +41,12 @@ public class TicketController implements TicketApi
     public TicketDto create(CreateTicketRequest request)
     {
         return ticketService.create(request);
+    }
+
+    @Override
+    public List<CategoryDto> categories()
+    {
+        return ticketService.categories();
     }
 
     @Override
@@ -65,9 +74,9 @@ public class TicketController implements TicketApi
     }
 
     @Override
-    public TicketDto changeStatus(Long number, ChangeStatusRequest request)
+    public TicketDto takeStep(Long number, TakeStepRequest request)
     {
-        return ticketService.changeStatus(number, request);
+        return ticketService.takeStep(number, request);
     }
 
     @Override

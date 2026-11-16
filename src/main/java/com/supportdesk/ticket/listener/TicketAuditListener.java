@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -36,8 +37,14 @@ public class TicketAuditListener
     @EventListener
     public void onStatusChanged(TicketStatusChangedEvent event)
     {
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("status", event.to());
+        after.put("step", event.step());
+        if (event.reason() != null) {
+            after.put("reason", event.reason());
+        }
         auditService.recordForCurrentUser(AuditAction.TICKET_STATUS_CHANGED, ENTITY, id(event.ticketNumber()),
-                Map.of("status", event.from()), Map.of("status", event.to()));
+                Map.of("status", event.from()), after);
     }
 
     // The rejected change rolls back with its 422, so the rejection is written in a transaction of its own.

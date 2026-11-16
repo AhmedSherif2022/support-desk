@@ -4,6 +4,10 @@ import com.supportdesk.ticket.enums.TicketStatus;
 import com.supportdesk.ticket.exception.InvalidStatusTransitionException;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+import java.util.Set;
+
+import static com.supportdesk.ticket.enums.TicketStatus.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -12,45 +16,32 @@ class TicketStatusMachineTest
 {
     private final TicketStatusMachine machine = new TicketStatusMachine();
 
-    @Test
-    void normalFlowIsAllowed()
-    {
-        assertThat(machine.canMove(TicketStatus.NEW, TicketStatus.TROUBLESHOOTING)).isTrue();
-        assertThat(machine.canMove(TicketStatus.TROUBLESHOOTING, TicketStatus.WAITING_ON_CUSTOMER)).isTrue();
-        assertThat(machine.canMove(TicketStatus.WAITING_ON_CUSTOMER, TicketStatus.RESOLVED)).isTrue();
-        assertThat(machine.canMove(TicketStatus.RESOLVED, TicketStatus.CLOSED)).isTrue();
-    }
+    /** The agreed ticket diagram, arrow by arrow. If this test fails, the diagram changed. */
+    private static final Map<TicketStatus, Set<TicketStatus>> DIAGRAM = Map.of(
+            NEW,                 Set.of(TROUBLESHOOTING),
+            TROUBLESHOOTING,     Set.of(WAITING_ON_CUSTOMER, RESOLVED, ESCALATED),
+            WAITING_ON_CUSTOMER, Set.of(TROUBLESHOOTING),
+            ESCALATED,           Set.of(WITH_SRE),
+            WITH_SRE,            Set.of(SRE_FIXED),
+            SRE_FIXED,           Set.of(IN_REVIEW),
+            IN_REVIEW,           Set.of(RESOLVED, REOPENED),
+            REOPENED,            Set.of(WITH_SRE),
+            RESOLVED,            Set.of(CLOSED),
+            CLOSED,              Set.of());
 
     @Test
-    void resolvedCanBeReopened()
+    void allowedMovesAreExactlyTheDiagram()
     {
-        assertThat(machine.canMove(TicketStatus.RESOLVED, TicketStatus.REOPENED)).isTrue();
-    }
-
-    @Test
-    void sreFixCanBeConfirmedOrRejected()
-    {
-        assertThat(machine.canMove(TicketStatus.SRE_FIXED, TicketStatus.RESOLVED)).isTrue();
-        assertThat(machine.canMove(TicketStatus.SRE_FIXED, TicketStatus.WITH_SRE)).isTrue();
+        for (TicketStatus from : TicketStatus.values()) {
+            for (TicketStatus to : TicketStatus.values()) {
+                assertThat(machine.canMove(from, to)).as(from + " -> " + to).isEqualTo(DIAGRAM.get(from).contains(to));
+            }
+        }
     }
 
     @Test
     void closedIsFinal()
     {
-        for (TicketStatus to : TicketStatus.values()) {
-            assertThat(machine.canMove(TicketStatus.CLOSED, to)).isFalse();
-        }
-        assertThatThrownBy(() -> machine.check(TicketStatus.CLOSED, TicketStatus.NEW))
-                .isInstanceOf(InvalidStatusTransitionException.class);
-    }
-
-    @Test
-    void agentCannotChooseSystemStatuses()
-    {
-        assertThat(machine.isAgentChoice(TicketStatus.WITH_SRE)).isFalse();
-        assertThat(machine.isAgentChoice(TicketStatus.SRE_FIXED)).isFalse();
-        assertThat(machine.agentChoicesFrom(TicketStatus.NEW))
-                .contains(TicketStatus.RESOLVED)
-                .doesNotContain(TicketStatus.ESCALATED);
+        assertThatThrownBy(() -> machine.check(CLOSED, NEW)).isInstanceOf(InvalidStatusTransitionException.class);
     }
 }

@@ -39,13 +39,16 @@ import java.time.Instant;
 @RequestMapping("/api/customers")
 @PreAuthorize("hasRole('AGENT')")
 @Tag(name = "Customers", description = "Find the caller, verify them, then open Customer 360. "
-        + "Everything after search needs a verified caller; sensitive fields stay masked until revealed.")
+        + "Everything after search needs a verified caller; sensitive fields stay masked until revealed. "
+        + "Verification guards Customer 360 only: search results, tickets and the queue show the customer's name "
+        + "and CIF without it. The checks are the agent's own confirmation of what the caller answered.")
 public interface CustomerApi
 {
     @GetMapping("/search")
-    @Operation(summary = "Search customers (E2-S1)",
+    @Operation(summary = "Search customers",
             description = "One box for CIF, national ID, mobile (01…, 20… or +20…) or ticket number (#2001). "
-                    + "Results are masked. Audited as CUSTOMER_SEARCHED without the search text. "
+                    + "National ID and mobile are masked; name, segment and enrollment status are not. "
+                    + "Audited as CUSTOMER_SEARCHED without the search text. "
                     + "More than 30 searches in 10 minutes answer 429.")
     @ApiResponse(responseCode = "200", description = "Matches, or an empty list with \"No match. Check the digits and the ID type.\"")
     @ApiResponse(responseCode = "401", description = "UNAUTHORIZED", content = @Content(schema = @Schema(implementation = ApiError.class)))
@@ -58,7 +61,7 @@ public interface CustomerApi
             @RequestParam String q);
 
     @GetMapping("/{cif}")
-    @Operation(summary = "Customer 360 header (E2-S2/S3)",
+    @Operation(summary = "Customer 360 header",
             description = "Needs a verified caller. National ID shows the last 4 digits, mobile the first 3 and last 4. "
                     + "Audited as CUSTOMER_DATA_VIEWED.")
     @ApiResponse(responseCode = "200", description = "The customer, masked")
@@ -72,8 +75,10 @@ public interface CustomerApi
             @PathVariable String cif);
 
     @PostMapping("/{cif}/verify")
-    @Operation(summary = "Verify caller identity (E2-S2)",
-            description = "Two or more checks must pass. Audited as CALLER_VERIFIED. Valid for 30 minutes or until end-call.")
+    @Operation(summary = "Verify caller identity",
+            description = "Two or more different checks must pass. Audited as CALLER_VERIFIED. Valid for 30 minutes "
+                    + "or until end-call. Too few checks are refused before the CIF is looked up, so an unknown CIF "
+                    + "with one check answers 422, not 404.")
     @ApiResponse(responseCode = "200", description = "Caller verified")
     @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED or MALFORMED_REQUEST",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
@@ -91,7 +96,7 @@ public interface CustomerApi
 
     @PostMapping("/{cif}/verification-failed")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Caller failed verification (E2-S2)",
+    @Operation(summary = "Caller failed verification",
             description = "Ends any verification for this agent and customer and audits CALLER_VERIFICATION_FAILED. "
                     + "No customer data is returned.")
     @ApiResponse(responseCode = "204", description = "Recorded")
@@ -115,7 +120,7 @@ public interface CustomerApi
 
     @PostMapping("/{cif}/end-call")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "End verification (E2-S2)",
+    @Operation(summary = "End verification",
             description = "Locks the customer again for this agent: every Customer 360 call answers CALLER_NOT_VERIFIED until verified again.")
     @ApiResponse(responseCode = "204", description = "Verification ended")
     @ApiResponse(responseCode = "401", description = "UNAUTHORIZED", content = @Content(schema = @Schema(implementation = ApiError.class)))
@@ -126,7 +131,7 @@ public interface CustomerApi
             @PathVariable String cif);
 
     @PostMapping("/{cif}/reveal")
-    @Operation(summary = "Reveal one masked field (E2-S3)",
+    @Operation(summary = "Reveal one masked field",
             description = "Returns the full value of one field. Audited as CUSTOMER_FIELD_REVEALED with the field name (not the value).")
     @ApiResponse(responseCode = "200", description = "The full value of that one field")
     @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: field is missing or not NATIONAL_ID / MOBILE",
@@ -141,7 +146,7 @@ public interface CustomerApi
             @Valid @RequestBody RevealRequest request);
 
     @GetMapping("/{cif}/diagnosis")
-    @Operation(summary = "What the logs already say (E2-S4)",
+    @Operation(summary = "What the logs already say",
             description = "The most frequent failure of the last 6 hours (count, event type, error code, service, time range), "
                     + "and the services with no failures. With no failures, suggests checking device or network.")
     @ApiResponse(responseCode = "200", description = "The diagnosis")
@@ -154,11 +159,12 @@ public interface CustomerApi
             @PathVariable String cif);
 
     @GetMapping("/{cif}/activity")
-    @Operation(summary = "Activity timeline (E2-S5)",
-            description = "Newest first. Default: last 6 hours, failures only. Counts cover the time range and result filter, "
+    @Operation(summary = "Activity timeline",
+            description = "Newest first; every matching event is returned (no paging), and CUSTOM has no maximum "
+                    + "length. Default: last 6 hours, failures only. Counts cover the time range and result filter, "
                     + "so every platform and service chip can show its number.")
     @ApiResponse(responseCode = "200", description = "Matching events, counts, and an empty-state hint when nothing matches")
-    @ApiResponse(responseCode = "400", description = "CUSTOM_RANGE_REQUIRED: CUSTOM needs from before to; or REQUEST_ERROR for a bad enum",
+    @ApiResponse(responseCode = "400", description = "CUSTOM_RANGE_REQUIRED: CUSTOM needs from and to, with from before to; or REQUEST_ERROR for a bad enum",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "401", description = "UNAUTHORIZED", content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "403", description = "CALLER_NOT_VERIFIED, or FORBIDDEN",
@@ -179,7 +185,7 @@ public interface CustomerApi
             @RequestParam(defaultValue = "true") boolean failuresOnly);
 
     @GetMapping("/{cif}/tickets")
-    @Operation(summary = "Customer's tickets (E2-S6)",
+    @Operation(summary = "Customer's tickets",
             description = "Newest first, with origin and status. More than one ticket in 20 days adds a \"Repeat caller\" note.")
     @ApiResponse(responseCode = "200", description = "The customer's tickets")
     @ApiResponse(responseCode = "401", description = "UNAUTHORIZED", content = @Content(schema = @Schema(implementation = ApiError.class)))

@@ -19,7 +19,10 @@ import com.supportdesk.guide.exception.GuideRunNotFoundException;
 import com.supportdesk.guide.repository.GuideRunRepository;
 import com.supportdesk.guide.repository.GuideVersionRepository;
 import com.supportdesk.ticket.entity.Ticket;
+import com.supportdesk.ticket.enums.StepActor;
 import com.supportdesk.ticket.enums.TicketStatus;
+import com.supportdesk.ticket.enums.TicketStep;
+import com.supportdesk.ticket.exception.InvalidStatusTransitionException;
 import com.supportdesk.ticket.listener.TicketAuditListener;
 import com.supportdesk.ticket.service.TicketService;
 import lombok.RequiredArgsConstructor;
@@ -64,14 +67,18 @@ public class GuideRunService
                 throw new BusinessRuleException(ErrorCode.GUIDE_RUN_ALREADY_ACTIVE,
                         "Ticket " + ticket.displayNumber() + " already has guide run " + active.getId() + " in progress.");
             }
-            // The ticket was moved on by hand (resolved, then reopened). Flush so the one-active-run index frees up.
+            // The ticket was moved on by hand (e.g. Request details). Flush so the one-active-run index frees up.
             active.abandon(clock.instant());
             runs.flush();
         });
 
         User agent = currentUserService.getCurrentUserEntity();
-        if (ticket.getStatus() != TicketStatus.TROUBLESHOOTING) {
-            ticketService.moveStatus(ticket, TicketStatus.TROUBLESHOOTING, agent);
+        switch (ticket.getStatus()) {                                   // the agent's step into Troubleshooting
+            case NEW -> ticketService.applyStep(ticket, TicketStep.PICK_UP_TICKET, StepActor.AGENT, agent, null);
+            case WAITING_ON_CUSTOMER ->
+                    ticketService.applyStep(ticket, TicketStep.DETAILS_RECEIVED, StepActor.AGENT, agent, null);
+            case TROUBLESHOOTING -> { }
+            default -> throw new InvalidStatusTransitionException(ticket.getStatus(), TicketStatus.TROUBLESHOOTING);
         }
         GuideRun run = runs.save(new GuideRun(ticket, version, agent, clock.instant()));
         auditService.recordForCurrentUser(AuditAction.GUIDE_STARTED, TicketAuditListener.ENTITY,

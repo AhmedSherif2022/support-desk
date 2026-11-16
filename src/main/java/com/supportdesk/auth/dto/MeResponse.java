@@ -12,10 +12,12 @@ import java.util.List;
  * Built from the token's badge, so it needs no database call.
  */
 public record MeResponse(
-        Long id,
-        String username,
-        Role role,
-        @Schema(description = "Screens this role may open, in menu order, e.g. HOME, CUSTOMER_SEARCH.")
+        @Schema(example = "1") Long id,
+        @Schema(example = "mona") String username,
+        @Schema(example = "AGENT") Role role,
+        @Schema(description = "Screens this role may open, in menu order. AGENT: HOME, CUSTOMER_SEARCH, MY_TICKETS, "
+                + "NOTIFICATIONS (a menu item with no API yet).",
+                example = "[\"HOME\", \"CUSTOMER_SEARCH\", \"MY_TICKETS\", \"NOTIFICATIONS\"]")
         List<String> allowedScreens)
 {
     public static MeResponse from(AuthenticatedUser user)

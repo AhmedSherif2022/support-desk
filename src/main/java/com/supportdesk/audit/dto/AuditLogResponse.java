@@ -9,19 +9,23 @@ import java.time.Instant;
 
 /** One audit record as the Audit log screen shows it. */
 public record AuditLogResponse(
-        Long id,
-        Instant time,
-        Long userId,
-        String username,
-        Role role,
-        AuditAction action,
-        @Schema(example = "CUSTOMER") String entity,
-        @Schema(example = "CIF-100245") String entityId,
-        @Schema(description = "JSON of the entity before the action, if it changed something.") String before,
-        @Schema(description = "JSON of the entity after the action.") String after,
-        String endpoint,
-        String httpMethod,
-        String ipAddress)
+        @Schema(example = "512") Long id,
+        @Schema(example = "2026-11-16T10:35:00Z") Instant time,
+        @Schema(description = "Who did it; null for the system (for example SLA changes).", example = "1") Long userId,
+        @Schema(example = "mona") String username,
+        @Schema(example = "AGENT") Role role,
+        @Schema(example = "TICKET_STATUS_CHANGED") AuditAction action,
+        @Schema(description = "What the record is about, for example TICKET (entityId is the ticket number) or "
+                + "CUSTOMER (entityId is the CIF).", example = "TICKET") String entity,
+        @Schema(example = "2001") String entityId,
+        @Schema(description = "JSON text of the state before the action; null when there was none. Its shape depends "
+                + "on the action (see the ticket Audit tab).") String before,
+        @Schema(description = "JSON text of the state after the action, or its details; null when there are none. "
+                + "Its shape depends on the action (see the ticket Audit tab).")
+        String after,
+        @Schema(description = "The request that caused it; null for the system.", example = "/api/tickets/2001/steps") String endpoint,
+        @Schema(example = "POST") String httpMethod,
+        @Schema(example = "10.0.0.15") String ipAddress)
 {
     public static AuditLogResponse from(AuditLog log)
     {

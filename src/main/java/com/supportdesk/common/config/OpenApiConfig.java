@@ -20,16 +20,16 @@ import org.springframework.context.annotation.Configuration;
                         Backend of the internal customer-service desk. There is no sign-up: staff accounts are seeded.
 
                         **Calling a protected endpoint**
-                        1. `POST /api/auth/login` (local agent seed: `mona` / `Password123!`) and copy `accessToken`.
+                        1. `POST /api/auth/login` with your staff account and copy `accessToken`.
                         2. Press **Authorize** and paste the token (no `Bearer ` prefix).
                         3. When it expires, get a new one with `POST /api/auth/refresh`.
 
                         **Agent ticket & SLA queue flow**
                         1. Verify the caller first via `POST /api/customers/{cif}/verify` (e.g. `CIF-100245` with at least two checks).
                         2. Run `POST /api/tickets/precheck` and `POST /api/tickets` to open a ticket with an SLA target (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`).
-                        3. Poll `GET /api/tickets/queue` (or filter by `chip`: `ALL`, `AT_RISK`, `BREACHED`, `PAUSED`) for open tickets ordered by SLA risk.
+                        3. Poll `GET /api/tickets/queue` (or filter by `chip`: `ALL`, `AT_RISK`, `IN_REVIEW`, `AUTO_CREATED`) for open tickets ordered by SLA risk.
 
-                        **Errors** always come back as `{code, message, fieldErrors, path, timestamp}`.
+                        **Errors** always come back as `{code, message, fieldErrors, path, timestamp}`; login lockouts and limits add `retryAt`, `retryAfterSeconds` and `attemptsLeft` when they apply.
                         `401 UNAUTHORIZED` means no or expired token; `403 FORBIDDEN` means your role may not open that area
                         (every 403 is written to the audit log).
                         """),

@@ -36,9 +36,9 @@ public interface AuthApi
     @PostMapping("/login")
     @SecurityRequirements   // public: no token needed
     @Operation(summary = "Log in",
-            description = "Returns a short-lived access token and a refresh token. "
-                    + "Send the password as SHA-256(password) in hex. 5 wrong passwords within 15 minutes "
-                    + "lock the account for 15 minutes.")
+            description = "Returns an access token (valid 15 minutes) and a refresh token (valid 30 minutes from the "
+                    + "last refresh). Send the password as SHA-256(password) in hex. Wrong passwords lock the account: "
+                    + "see 423. Failures count per username, so anyone who knows a username can lock it.")
     @ApiResponse(responseCode = "200", description = "Logged in")
     @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: username or password missing or too long; "
             + "PASSWORD_NOT_HASHED: a plain password outside the local profile",
@@ -62,7 +62,10 @@ public interface AuthApi
     @PostMapping("/refresh")
     @SecurityRequirements   // public: the refresh token in the body is the credential
     @Operation(summary = "Get a new access token",
-            description = "Trade the refresh token from login for a fresh access token. Fails after logout.")
+            description = "Trade the refresh token for a fresh access token (valid 15 minutes). Call it when a request "
+                    + "answers 401 UNAUTHORIZED (an expired token gets the same code as a missing one), then retry "
+                    + "once. The same refresh token comes back and its 30 minutes restart; it is not rotated. Fails "
+                    + "after logout, or after 30 minutes without a refresh.")
     @ApiResponse(responseCode = "200", description = "New access token (the refresh token is returned unchanged)")
     @ApiResponse(responseCode = "401", description = "INVALID_REFRESH_TOKEN (unknown or logged out) or REFRESH_TOKEN_EXPIRED",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
@@ -84,7 +87,7 @@ public interface AuthApi
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Who am I, and what can I open?",
             description = "The logged-in user and the screens their role may see. "
-                    + "The frontend builds its menu from allowedScreens.")
+                    + "The frontend builds its menu from allowedScreens. Call it after login and after a reload.")
     @ApiResponse(responseCode = "200", description = "The logged-in user")
     @ApiResponse(responseCode = "401", description = "UNAUTHORIZED: no token, or it expired",
             content = @Content(schema = @Schema(implementation = ApiError.class)))

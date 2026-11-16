@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -75,6 +76,12 @@ public class GlobalExceptionHandler
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiError> handleUnreadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
         return error(ErrorCode.MALFORMED_REQUEST, request);
+    }
+
+    // An unknown sort field, e.g. GET /api/tickets?sort=bogus.
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ApiError> handleUnknownProperty(PropertyReferenceException ex, HttpServletRequest request) {
+        return error(ErrorCode.REQUEST_ERROR, request);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

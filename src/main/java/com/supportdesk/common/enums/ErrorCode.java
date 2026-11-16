@@ -39,7 +39,8 @@ public enum ErrorCode
     REFERENCE_REQUIRED(HttpStatus.UNPROCESSABLE_ENTITY, "Transaction reference must start with TRX-"),
     REFERENCE_FORMAT(HttpStatus.UNPROCESSABLE_ENTITY, "The transaction reference format is not valid."),
     INVALID_STATUS_TRANSITION(HttpStatus.UNPROCESSABLE_ENTITY, "This status change is not allowed."),
-    STATUS_SET_BY_SYSTEM(HttpStatus.UNPROCESSABLE_ENTITY, "This status is set by the system, not by hand."),
+    STEP_NOT_YOURS(HttpStatus.UNPROCESSABLE_ENTITY, "This step is taken by someone else: another role, a guide or the system."),
+    REASON_REQUIRED(HttpStatus.UNPROCESSABLE_ENTITY, "Give a reason for this step."),
 
     // guides
     GUIDE_NOT_FOUND(HttpStatus.NOT_FOUND, "This guide does not exist or has no live version."),

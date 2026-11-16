@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 
-@Schema(description = "One open ticket row in the agent home queue (E3-S4): what it is, who it is for, its SLA, and the one next step.")
+@Schema(description = "One open ticket row in the agent home queue: what it is, who it is for, its SLA, and the one next step.")
 public record QueueTicketResponse(
         @Schema(example = "1")
         Long id,
@@ -41,15 +41,16 @@ public record QueueTicketResponse(
         String assignedAgent,
         @Schema(example = "AT_RISK")
         SlaState slaState,
-        @Schema(description = "The one SLA value: time left, Paused, Met, or Breached Xh Ym.", example = "1h 30m left")
+        @Schema(description = "The SLA meter's text: time left, Paused, Met, or Breached Xh Ym.", example = "1h 30m left")
         String slaLabel,
         @Schema(description = "Current SLA deadline (shifted forward by any completed pauses).")
         Instant slaDueAt,
-        @Schema(description = "Percent of the SLA target already used. Over 100 means breached.", example = "81")
+        @Schema(description = "Percent of the SLA target already used. 100 or more means breached.", example = "81")
         int percentUsed,
         @Schema(description = "Seconds left on the target. Negative once the target has passed.", example = "5400")
         long remainingSeconds,
-        @Schema(description = "True while the SLA clock is stopped (WAITING_ON_CUSTOMER).", example = "false")
+        @Schema(description = "True while the SLA clock is stopped (WAITING_ON_CUSTOMER). Paused tickets sort last, "
+                + "even when breached.", example = "false")
         boolean paused,
         @Schema(example = "ESCALATE")
         NextAction nextAction,

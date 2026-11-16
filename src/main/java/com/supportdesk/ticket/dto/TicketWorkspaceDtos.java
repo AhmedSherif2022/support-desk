@@ -29,7 +29,7 @@ public final class TicketWorkspaceDtos
             @Schema(example = "1") Long id,
             @Schema(example = "Told the customer the OTP issue is fixed and asked them to try again.") String note,
             @Schema(example = "Mona") String author,
-            Instant time)
+            @Schema(example = "2026-11-16T10:45:00Z") Instant time)
     {
     }
 
@@ -53,8 +53,9 @@ public final class TicketWorkspaceDtos
             @Schema(example = "TROUBLESHOOTING") TicketStatus status,
             @Schema(example = "HIGH") TicketPriority priority,
             @Schema(example = "MANUAL") TicketOrigin origin,
-            @Schema(example = "AT_RISK") SlaState slaState,
-            Instant createdAt)
+            @Schema(description = "The stored SLA state, refreshed every minute, so it can lag by up to a minute.",
+                    example = "AT_RISK") SlaState slaState,
+            @Schema(example = "2026-11-16T09:30:00Z") Instant createdAt)
     {
     }
 }
