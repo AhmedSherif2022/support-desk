@@ -4,6 +4,8 @@ import com.supportdesk.common.exception.ApiError;
 import com.supportdesk.guide.dto.GuideDtos.AnswerRequest;
 import com.supportdesk.guide.dto.GuideDtos.CompleteRunRequest;      // E4-S3
 import com.supportdesk.guide.dto.GuideDtos.CompletedRunDto;         // E4-S3
+import com.supportdesk.guide.dto.GuideDtos.FlagStepRequest;         // E4-S5
+import com.supportdesk.guide.dto.GuideDtos.GuideFeedbackDto;        // E4-S5
 import com.supportdesk.guide.dto.GuideDtos.GuideRunDto;
 import com.supportdesk.guide.dto.GuideDtos.StartGuideRunRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -133,4 +135,27 @@ public interface GuideRunApi
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     CompletedRunDto complete(@Parameter(description = "Guide run id, from starting the run.", example = "17") @PathVariable Long id,
                              @Valid @RequestBody CompleteRunRequest request);
+
+    @PostMapping("/{id}/flags")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Flag a step",
+            description = "After finishing a run, reports one of its steps as wrong or unclear. The step must be on the "
+                    + "run's path (one the agent answered, by its stepKey). The report keeps the run and the version it "
+                    + "was pinned to, starts OPEN, is signed by the logged-in agent, and audits GUIDE_STEP_FLAGGED on the "
+                    + "ticket. The Guide Admin reads the reports at GET /api/admin/guide-feedback.")
+    @ApiResponse(responseCode = "201", description = "Report saved, status OPEN")
+    @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: stepKey or comment missing or blank, or comment over 2000 characters; or MALFORMED_REQUEST",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "401", description = "UNAUTHORIZED: no token, or it expired",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "403", description = "FORBIDDEN: not an AGENT",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "404", description = "GUIDE_RUN_NOT_FOUND",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "409", description = "GUIDE_RUN_NOT_COMPLETED: the run is still in progress",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "422", description = "GUIDE_STEP_NOT_TAKEN: the step is not on the run's path",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    GuideFeedbackDto flag(@Parameter(description = "Guide run id, from starting the run.", example = "17") @PathVariable Long id,
+                          @Valid @RequestBody FlagStepRequest request);
 }

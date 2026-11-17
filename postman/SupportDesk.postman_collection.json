@@ -32,7 +32,8 @@
     { "key": "followUpRunId", "value": "" },
     { "key": "escalateTicket", "value": "" },
     { "key": "escalateRunId", "value": "" },
-    { "key": "longNotes", "value": "" }
+    { "key": "longNotes", "value": "" },
+    { "key": "guideFeedbackId", "value": "" }
   ],
   "item": [
     {
@@ -2180,6 +2181,183 @@
               "mode": "raw",
               "raw": "{}"
             }
+          }
+        },
+        {
+          "name": "Flag a step of the finished run (E4-S5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const flag = pm.response.json();",
+                  "pm.test('Pinned to the run, its version and the logged-in agent, OPEN', () => {",
+                  "    pm.expect(flag.guideRunId).to.eql(Number(pm.collectionVariables.get('escalateRunId')));",
+                  "    pm.expect(flag.version).to.eql(2);",
+                  "    pm.expect(flag.stepKey).to.eql('other-device');",
+                  "    pm.expect(flag.question).to.be.a('string').and.not.empty;",
+                  "    pm.expect(flag.agentUsername).to.eql(pm.collectionVariables.get('agentUsername'));",
+                  "    pm.expect(flag.status).to.eql('OPEN');",
+                  "});",
+                  "pm.collectionVariables.set('guideFeedbackId', flag.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{escalateRunId}}/flags",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "Only after the run is finished, and only for a step on its path. Audits GUIDE_STEP_FLAGGED on the ticket.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"other-device\",\n  \"comment\": \"The hint contradicts the question.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Flag with a blank comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('VALIDATION_FAILED'));",
+                  "pm.test('Names the comment field', () => pm.expect(pm.response.json().fieldErrors).to.have.property('comment'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{escalateRunId}}/flags",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"app-version\",\n  \"comment\": \"   \"\n}"
+            }
+          }
+        },
+        {
+          "name": "Flag a step the run did not take",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422', () => pm.response.to.have.status(422));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('GUIDE_STEP_NOT_TAKEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{escalateRunId}}/flags",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "password-reset belongs to another guide; the escalate run took app-version, other-device and status-page.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"password-reset\",\n  \"comment\": \"Unclear\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Flag a step on a run that does not exist",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('GUIDE_RUN_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/999999/flags",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"app-version\",\n  \"comment\": \"Unclear\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Admin reads the feedback queue (newest first)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Paged', () => pm.expect(body).to.have.keys('items', 'page', 'size', 'totalItems', 'totalPages'));",
+                  "pm.test('The flag just made comes first', () => {",
+                  "    pm.expect(body.items[0].id).to.eql(Number(pm.collectionVariables.get('guideFeedbackId')));",
+                  "    pm.expect(body.items[0]).to.include.all.keys('guideId', 'guideTitle', 'version', 'stepKey', 'question', 'agentUsername', 'agentName', 'comment', 'status', 'createdAt');",
+                  "    pm.expect(body.items[0].status).to.eql('OPEN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/guide-feedback?size=5",
+            "description": "GUIDE_ADMIN only (youssef, logged in by folder 3). Paging: page, size, sort."
+          }
+        },
+        {
+          "name": "Agent opens the feedback queue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/guide-feedback",
+            "description": "Runs as mona (AGENT): the admin area is not hers."
           }
         },
         {

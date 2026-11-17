@@ -2,12 +2,14 @@ package com.supportdesk.guide.dto;
 
 import com.supportdesk.guide.dto.GuideDtos.AnsweredStepDto;
 import com.supportdesk.guide.dto.GuideDtos.CurrentStepDto;
+import com.supportdesk.guide.dto.GuideDtos.GuideFeedbackDto;
 import com.supportdesk.guide.dto.GuideDtos.GuideRunDto;
 import com.supportdesk.guide.dto.GuideDtos.HintDto;
 import com.supportdesk.guide.dto.GuideDtos.OptionDto;
 import com.supportdesk.guide.dto.GuideDtos.OutcomeDto;
 import com.supportdesk.guide.dto.GuideDtos.RecommendedGuideDto;
 import com.supportdesk.guide.entity.Guide;
+import com.supportdesk.guide.entity.GuideFeedback;
 import com.supportdesk.guide.entity.GuideRun;
 import com.supportdesk.guide.entity.GuideTree;
 import com.supportdesk.guide.entity.GuideTree.AtOutcome;
@@ -57,6 +59,17 @@ public final class  GuideMapper
         return new GuideRunDto(run.getId(), run.getTicket().displayNumber(), version.getGuide().getId(),
                 version.getGuide().getTitle(), version.getVersionNumber(), run.status(), path, current, outcome,
                 run.getStartedAt(), run.getStartedBy().getFullName());
+    }
+
+    public static GuideFeedbackDto toDto(GuideFeedback feedback)
+    {
+        GuideVersion version = feedback.getGuideVersion();
+        GuideTree.Step step = version.getTree().steps().get(feedback.getStepKey());
+        return new GuideFeedbackDto(feedback.getId(), feedback.getRun().getId(), feedback.getRun().getTicket().displayNumber(),
+                version.getGuide().getId(), version.getGuide().getTitle(), version.getVersionNumber(),
+                feedback.getStepKey(), step == null ? null : step.question(),
+                feedback.getAgent().getUsername(), feedback.getAgent().getFullName(),
+                feedback.getComment(), feedback.getStatus(), feedback.getCreatedAt());
     }
 
     private static CurrentStepDto currentStep(GuideTree tree, AtStep at, int stepNumber, String customerErrorCode)

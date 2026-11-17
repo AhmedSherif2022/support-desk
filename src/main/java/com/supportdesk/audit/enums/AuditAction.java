@@ -12,7 +12,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
         + "- TICKET_TRANSITION_REJECTED: a step was refused because it does not start from the ticket's status\n"
         + "- CUSTOMER_CONTACTED: what the customer was told was logged\n"
         + "- SLA_WARNING, SLA_BREACHED: a ticket's SLA became at risk, or breached\n"
-        + "- GUIDE_STARTED, GUIDE_COMPLETED: a troubleshooting guide was started or finished on a ticket")
+        + "- GUIDE_STARTED, GUIDE_COMPLETED: a troubleshooting guide was started or finished on a ticket\n"
+        + "- GUIDE_STEP_FLAGGED: an agent reported a step of a finished run as wrong or unclear")
 public enum AuditAction {
     ACCESS_DENIED,
     USER_LOGIN,
@@ -29,6 +30,7 @@ public enum AuditAction {
     SLA_WARNING,
     SLA_BREACHED,
     GUIDE_STARTED,
-    GUIDE_COMPLETED
+    GUIDE_COMPLETED,
+    GUIDE_STEP_FLAGGED
     }
 
