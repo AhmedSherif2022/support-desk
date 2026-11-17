@@ -30,7 +30,7 @@ class SupportDeskApplicationTests
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tags[*].name", containsInAnyOrder("Audit", "Auth", "Customers", "Tickets",
-                        "Guides", "Guide runs", "Ticket review")))
+                        "Guides", "Guide runs", "Guide feedback", "Ticket review")))
                 .andExpect(jsonPath("$.paths['/api/auth/login'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/audit/logs'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/customers/{cif}'].get").exists())
@@ -47,9 +47,11 @@ class SupportDeskApplicationTests
                 .andExpect(jsonPath("$.paths['/api/guide-runs/{id}'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/guide-runs/{id}/answers'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/guide-runs/{id}/answers/{position}'].delete").exists())
+                .andExpect(jsonPath("$.paths['/api/guide-runs/{id}/flags'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/admin/guide-feedback'].get").exists())
                 .andExpect(jsonPath("$.components.schemas.QueueResponse").exists())
                 // agent APIs: every enum they expose is one shared, described schema; no backlog ids in titles
-                .andExpect(jsonPath("$.components.schemas['TicketPriority','SlaState','TicketOrigin','Platform','Segment','EnrollmentStatus','QueueChip','GuideRunStatus','OutcomeType','Role','AuditAction'].description", everyItem(not(emptyOrNullString()))))
+                .andExpect(jsonPath("$.components.schemas['TicketPriority','SlaState','TicketOrigin','Platform','Segment','EnrollmentStatus','QueueChip','GuideRunStatus','GuideFeedbackStatus','OutcomeType','Role','AuditAction'].description", everyItem(not(emptyOrNullString()))))
                 .andExpect(jsonPath("$.components.schemas.QueueTicketResponse.properties.slaState['$ref']")
                         .value("#/components/schemas/SlaState"))
                 .andExpect(jsonPath("$.paths['/api/customers/search'].get.summary").value("Search customers"))

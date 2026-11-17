@@ -63,7 +63,8 @@ The full reference, with every field and error code, is Swagger UI at `/swagger-
 | `GET /api/review/tickets/{number}` | Agent, Reviewer | One ticket to read before deciding. A Reviewer gets it without the customer's CIF and name. |
 | `POST /api/review/tickets/{number}/steps` | Agent, Reviewer | `REVIEWER_APPROVES` resolves the ticket; `REVIEWER_REJECTS` needs a reason and reopens it. |
 | `GET /api/guide-runs?ticket={number}` | Agent | The ticket's Work tab: every guide run on it, newest first, with version, path, status, outcome and times (E3-S5). |
-| `POST /api/guide-runs/{id}/flags` | Agent | Flags a wrong or unclear step of a completed or abandoned run, with a comment, for the Guide Admin. 409 `GUIDE_RUN_NOT_FINISHED` while the run is open; audited as `GUIDE_STEP_FLAGGED` (E4-S5). |
+| `POST /api/guide-runs/{id}/flags` | Agent | Flags a wrong or unclear step of a completed or abandoned run (a step it answered, or where an abandoned run stopped), with a comment. The report starts `OPEN` and keeps the pinned version. 409 `GUIDE_RUN_STILL_ACTIVE` while the run is open, 422 `GUIDE_STEP_NOT_TAKEN` for any other step; audited as `GUIDE_STEP_FLAGGED` without the comment (E4-S5). |
+| `GET /api/admin/guide-feedback` | Guide Admin | The Agent feedback queue: every flagged step, newest first, paged, with the guide, version, question, agent, comment and status (E4-S5). |
 
 Other changes:
 

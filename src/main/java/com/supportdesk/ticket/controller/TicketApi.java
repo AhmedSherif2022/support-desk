@@ -245,7 +245,8 @@ public interface TicketApi
                     + "- GUIDE_STARTED: after {guideRunId, guideId, guideTitle, version}\n"
                     + "- GUIDE_COMPLETED: after is the session summary {guideRunId, guideId, guideTitle, version, "
                     + "path, durationSeconds, outcome, outcomeType}\n"
-                    + "- GUIDE_STEP_FLAGGED: after {flagId, guideRunId, guideId, version, stepKey}\n"
+                    + "- GUIDE_STEP_FLAGGED: after {feedbackId, guideRunId, guideId, guideTitle, version, stepKey, question, "
+                    + "answer}; no answer for the step an abandoned run stopped on; never the comment\n"
                     + "- SLA_WARNING, SLA_BREACHED: by the system (userId null), after {percentUsed}\n\n"
                     + "Each row also carries the actor's endpoint, httpMethod and ipAddress, as recorded.")
     @ApiResponse(responseCode = "200", description = "Audit records")

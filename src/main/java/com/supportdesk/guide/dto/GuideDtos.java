@@ -1,5 +1,6 @@
 package com.supportdesk.guide.dto;
 
+import com.supportdesk.guide.enums.GuideFeedbackStatus;
 import com.supportdesk.guide.enums.GuideMatchType;
 import com.supportdesk.guide.enums.GuideRunStatus;
 import com.supportdesk.guide.enums.OutcomeType;
@@ -114,27 +115,33 @@ public final class GuideDtos
     {
     }
 
+    // E4-S5
     public record FlagStepRequest(
-            @Schema(description = "A stepKey from the run's path, or the step an abandoned run stopped on.", example = "other-device")
+            @Schema(description = "A step from the run's path (one the agent actually answered), or the step an "
+                    + "abandoned run stopped on.", example = "app-version")
             @NotBlank(message = "Say which step you are flagging.") String stepKey,
-            @Schema(description = "What was wrong or unclear about the step.",
-                    example = "The question does not say which device to try.")
-            @NotBlank(message = "Write what was wrong or unclear.")
-            @Size(max = 1000, message = "The comment can be at most 1000 characters.") String comment)
+            @Schema(description = "What was wrong or unclear about it. The Guide Admin reads it as typed: no customer "
+                    + "details.", example = "This step is unclear")
+            @NotBlank(message = "Say what was wrong or unclear.")
+            @Size(max = 2000, message = "The comment can be at most 2000 characters.") String comment)
     {
     }
 
-    public record StepFlagDto(
+    public record GuideFeedbackDto(
             @Schema(example = "5") Long id,
-            @Schema(example = "17") Long guideRunId,
+            @Schema(description = "The run the step was flagged on.", example = "17") Long guideRunId,
+            @Schema(example = "#2002") String ticketNumber,
             @Schema(example = "3") Long guideId,
             @Schema(example = "Login failed: server error") String guideTitle,
-            @Schema(description = "The version the run used, so the Guide Admin fixes the right one.", example = "2") int version,
-            @Schema(example = "other-device") String stepKey,
-            @Schema(example = "Can the customer log in on the web or on another device?") String question,
-            @Schema(example = "The question does not say which device to try.") String comment,
-            @Schema(description = "Full name of the agent who flagged it.", example = "Mona") String flaggedBy,
-            @Schema(example = "2026-11-16T10:45:00Z") Instant flaggedAt)
+            @Schema(description = "The version the run was pinned to.", example = "2") int version,
+            @Schema(example = "app-version") String stepKey,
+            @Schema(description = "The question as it reads on that version.", example = "Is the app on version 5.2 or later?")
+            String question,
+            @Schema(description = "Username of the agent who flagged it.", example = "mona") String agentUsername,
+            @Schema(description = "Full name of the agent who flagged it.", example = "Mona") String agentName,
+            @Schema(example = "This step is unclear") String comment,
+            @Schema(example = "OPEN") GuideFeedbackStatus status,
+            @Schema(example = "2026-11-16T10:35:00Z") Instant createdAt)
     {
     }
 }

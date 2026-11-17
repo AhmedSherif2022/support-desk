@@ -50,7 +50,8 @@ public enum ErrorCode
     GUIDE_DOES_NOT_FIT(HttpStatus.UNPROCESSABLE_ENTITY, "This guide does not fit the ticket's platform, category or error."),
     INVALID_GUIDE_ROUTE(HttpStatus.UNPROCESSABLE_ENTITY, "This answer does not fit the current step."),
     GUIDE_OUTCOME_NOT_REACHED(HttpStatus.CONFLICT, "Finish the guide's questions before completing it."),
-    GUIDE_RUN_NOT_FINISHED(HttpStatus.CONFLICT, "Finish the guide before flagging a step.");
+    GUIDE_RUN_STILL_ACTIVE(HttpStatus.CONFLICT, "Finish the guide before flagging one of its steps."),
+    GUIDE_STEP_NOT_TAKEN(HttpStatus.UNPROCESSABLE_ENTITY, "Only a step taken during this run, or where an abandoned run stopped, can be flagged.");
 
     private final HttpStatus status;
     private final String message;

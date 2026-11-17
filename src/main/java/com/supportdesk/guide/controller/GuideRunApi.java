@@ -4,10 +4,10 @@ import com.supportdesk.common.exception.ApiError;
 import com.supportdesk.guide.dto.GuideDtos.AnswerRequest;
 import com.supportdesk.guide.dto.GuideDtos.CompleteRunRequest;      // E4-S3
 import com.supportdesk.guide.dto.GuideDtos.CompletedRunDto;         // E4-S3
-import com.supportdesk.guide.dto.GuideDtos.FlagStepRequest;
+import com.supportdesk.guide.dto.GuideDtos.FlagStepRequest;         // E4-S5
+import com.supportdesk.guide.dto.GuideDtos.GuideFeedbackDto;        // E4-S5
 import com.supportdesk.guide.dto.GuideDtos.GuideRunDto;
 import com.supportdesk.guide.dto.GuideDtos.StartGuideRunRequest;
-import com.supportdesk.guide.dto.GuideDtos.StepFlagDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -160,13 +160,12 @@ public interface GuideRunApi
     @PostMapping("/{id}/flags")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Flag a step",
-            description = "After a run is completed or abandoned, the agent reports a step that was wrong or "
-                    + "unclear: one on its path, or the step an abandoned run stopped on. The flag keeps the guide, the version the run used, the step, the comment, "
-                    + "the agent and the time, for the Guide Admin's feedback queue (not built yet). A step can be "
-                    + "flagged more than once. Audited as GUIDE_STEP_FLAGGED, without the comment.")
-    @ApiResponse(responseCode = "201", description = "The flag")
-    @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: no stepKey, an empty comment, or a comment "
-            + "longer than 1000 characters",
+            description = "After finishing a run, reports one of its steps as wrong or unclear. The step must be on the "
+                    + "run's path (one the agent answered, by its stepKey), or the step an abandoned run stopped on. The report "
+                    + "keeps the run and the version it was pinned to, starts OPEN, is signed by the logged-in agent, and "
+                    + "audits GUIDE_STEP_FLAGGED on the ticket, without the comment. The Guide Admin reads the reports at GET /api/admin/guide-feedback.")
+    @ApiResponse(responseCode = "201", description = "Report saved, status OPEN")
+    @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: stepKey or comment missing or blank, or comment over 2000 characters; or MALFORMED_REQUEST",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "401", description = "UNAUTHORIZED: no token, or it expired",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
@@ -174,10 +173,10 @@ public interface GuideRunApi
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "404", description = "GUIDE_RUN_NOT_FOUND",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
-    @ApiResponse(responseCode = "409", description = "GUIDE_RUN_NOT_FINISHED: the run is still open; finish it first",
+    @ApiResponse(responseCode = "409", description = "GUIDE_RUN_STILL_ACTIVE: the run is still in progress",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
-    @ApiResponse(responseCode = "422", description = "INVALID_GUIDE_ROUTE: the step is not on this run's path (nor where an abandoned run stopped)",
+    @ApiResponse(responseCode = "422", description = "GUIDE_STEP_NOT_TAKEN: the step is not on the run's path, nor where an abandoned run stopped",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
-    StepFlagDto flag(@Parameter(description = "Guide run id.", example = "17") @PathVariable Long id,
-                     @Valid @RequestBody FlagStepRequest request);
+    GuideFeedbackDto flag(@Parameter(description = "Guide run id, from starting the run.", example = "17") @PathVariable Long id,
+                          @Valid @RequestBody FlagStepRequest request);
 }

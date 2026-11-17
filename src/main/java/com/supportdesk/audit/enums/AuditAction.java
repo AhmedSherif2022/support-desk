@@ -13,7 +13,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
         + "- CUSTOMER_CONTACTED: what the customer was told was logged\n"
         + "- SLA_WARNING, SLA_BREACHED: a ticket's SLA became at risk, or breached\n"
         + "- GUIDE_STARTED, GUIDE_COMPLETED: a troubleshooting guide was started or finished on a ticket\n"
-        + "- GUIDE_STEP_FLAGGED: an agent flagged a step of a finished guide run as wrong or unclear")
+        + "- GUIDE_STEP_FLAGGED: an agent reported a step of a finished run as wrong or unclear")
 public enum AuditAction {
     ACCESS_DENIED,
     USER_LOGIN,

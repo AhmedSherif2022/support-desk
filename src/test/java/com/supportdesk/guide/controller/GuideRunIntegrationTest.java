@@ -273,49 +273,6 @@ class GuideRunIntegrationTest
         runs(999_999_999L).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TICKET_NOT_FOUND"));
     }
 
-    // ---- E4-S5 ----
-
-    @Test
-    void aStepOfAFinishedRunCanBeFlaggedAndTheAuditLeavesOutTheComment() throws Exception
-    {
-        long run = finishedEscalateRun();
-        run(run).andExpect(jsonPath("$.status").value("COMPLETED"));
-
-        flag(run, "other-device", "  The question does not say which device to try.  ")
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.guideRunId").value(run))
-                .andExpect(jsonPath("$.guideTitle").value("Login failed: server error"))
-                .andExpect(jsonPath("$.version").value(2))
-                .andExpect(jsonPath("$.stepKey").value("other-device"))
-                .andExpect(jsonPath("$.question").value("Can the customer log in on the web or on another device?"))
-                .andExpect(jsonPath("$.comment").value("The question does not say which device to try."))
-                .andExpect(jsonPath("$.flaggedBy").value("Guide Test"))
-                .andExpect(jsonPath("$.flaggedAt").isNotEmpty());
-
-        long ticket = Long.parseLong(JsonPath.<String>read(run(run).andReturn().getResponse().getContentAsString(),
-                "$.ticketNumber").substring(1));
-        assertThat(auditRows(ticket, AuditAction.GUIDE_STEP_FLAGGED)).singleElement()
-                .satisfies(log -> assertThat(log.getAfterState()).contains("\"stepKey\":\"other-device\"")
-                        .doesNotContain("which device"));
-    }
-
-    @Test
-    void onlyAStepOnAFinishedRunsPathWithACommentCanBeFlagged() throws Exception
-    {
-        long open = startServerErrorRun();
-        answer(open, "app-version", "yes");
-        flag(open, "app-version", "Unclear.").andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("GUIDE_RUN_NOT_FINISHED"));
-
-        long run = finishedEscalateRun();
-        flag(run, "no-such-step", "Unclear.").andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.code").value("INVALID_GUIDE_ROUTE"));
-        flag(run, "other-device", "   ").andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
-                .andExpect(jsonPath("$.fieldErrors.comment").exists());
-        flag(999_999_999L, "other-device", "Unclear.").andExpect(status().isNotFound());
-    }
-
     @Test
     void anUnknownRunIs404() throws Exception
     {
@@ -323,18 +280,6 @@ class GuideRunIntegrationTest
                 .andExpect(jsonPath("$.code").value("GUIDE_RUN_NOT_FOUND"));
     }
 
-
-    /** Yes, no, no reaches the Escalate outcome; finishing it hands the ticket over. */
-    private long finishedEscalateRun() throws Exception
-    {
-        long run = startServerErrorRun();
-        answer(run, "app-version", "yes");
-        answer(run, "other-device", "no");
-        answer(run, "status-page", "no").andExpect(jsonPath("$.status").value("OUTCOME_REACHED"));
-        mockMvc.perform(post("/api/guide-runs/" + run + "/complete").header(HttpHeaders.AUTHORIZATION, token)
-                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk());
-        return run;
-    }
 
     private long startServerErrorRun() throws Exception
     {

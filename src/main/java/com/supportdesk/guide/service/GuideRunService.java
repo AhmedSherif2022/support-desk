@@ -7,22 +7,16 @@ import com.supportdesk.auth.service.CurrentUserService;
 import com.supportdesk.common.enums.ErrorCode;
 import com.supportdesk.common.exception.BusinessRuleException;
 import com.supportdesk.guide.dto.GuideDtos.AnswerRequest;
-import com.supportdesk.guide.dto.GuideDtos.FlagStepRequest;
 import com.supportdesk.guide.dto.GuideDtos.GuideRunDto;
 import com.supportdesk.guide.dto.GuideDtos.RecommendedGuideDto;
 import com.supportdesk.guide.dto.GuideDtos.StartGuideRunRequest;
-import com.supportdesk.guide.dto.GuideDtos.StepFlagDto;
 import com.supportdesk.guide.dto.GuideMapper;
 import com.supportdesk.guide.entity.GuideRun;
-import com.supportdesk.guide.entity.GuideStepFlag;
-import com.supportdesk.guide.entity.GuideTree.AtStep;
-import com.supportdesk.guide.entity.GuideTree.Walk;
 import com.supportdesk.guide.entity.GuideVersion;
 import com.supportdesk.guide.enums.GuideVersionState;
 import com.supportdesk.guide.exception.GuideNotFoundException;
 import com.supportdesk.guide.exception.GuideRunNotFoundException;
 import com.supportdesk.guide.repository.GuideRunRepository;
-import com.supportdesk.guide.repository.GuideStepFlagRepository;
 import com.supportdesk.guide.repository.GuideVersionRepository;
 import com.supportdesk.ticket.entity.Ticket;
 import com.supportdesk.ticket.enums.StepActor;
@@ -38,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +41,6 @@ public class GuideRunService
     private final GuideMatcher guideMatcher;
     private final GuideVersionRepository versions;
     private final GuideRunRepository runs;
-    private final GuideStepFlagRepository flags;
     private final CurrentUserService currentUserService;
     private final AuditService auditService;
     private final Clock clock;
@@ -129,36 +121,6 @@ public class GuideRunService
     {
         Ticket ticket = ticketService.getEntity(ticketNumber);
         return runs.findByTicketIdOrderByStartedAtDescIdDesc(ticket.getId()).stream().map(GuideMapper::toDto).toList();
-    }
-
-    @Transactional   // the flag and GUIDE_STEP_FLAGGED commit together
-    public StepFlagDto flag(Long runId, FlagStepRequest request)
-    {
-        GuideRun run = runs.findById(runId).orElseThrow(() -> new GuideRunNotFoundException(runId));
-        if (run.isActive()) {
-            throw new BusinessRuleException(ErrorCode.GUIDE_RUN_NOT_FINISHED);
-        }
-        String stepKey = request.stepKey();
-        Walk walk = run.walk();
-        // An answered step, or the one an abandoned run stopped on: the unclear step is often the unanswered one.
-        String question = walk.taken().stream().filter(taken -> taken.stepKey().equals(stepKey))
-                .map(taken -> taken.step().question()).findFirst()
-                .or(() -> walk.position() instanceof AtStep at && at.key().equals(stepKey)
-                        ? Optional.of(at.step().question()) : Optional.empty())
-                .orElseThrow(() -> new BusinessRuleException(ErrorCode.INVALID_GUIDE_ROUTE,
-                        "Step '" + stepKey + "' is not on this run's path."));
-        GuideStepFlag flag = flags.save(new GuideStepFlag(run, stepKey, request.comment().trim(),
-                currentUserService.getCurrentUserEntity(), clock.instant()));
-        GuideVersion version = run.getPinnedVersion();
-        // The comment stays out of the audit row: it is free text the agent typed.
-        auditService.recordForCurrentUser(AuditAction.GUIDE_STEP_FLAGGED, TicketAuditListener.ENTITY,
-                String.valueOf(run.getTicket().getTicketNumber()), null, Map.of(
-                        "flagId", flag.getId(),
-                        "guideRunId", run.getId(),
-                        "guideId", version.getGuide().getId(),
-                        "version", version.getVersionNumber(),
-                        "stepKey", stepKey));
-        return GuideMapper.toDto(flag, question);
     }
 
     private GuideRun lockActive(Long runId)
