@@ -148,7 +148,8 @@ public interface CustomerApi
     @GetMapping("/{cif}/diagnosis")
     @Operation(summary = "What the logs already say",
             description = "The most frequent failure of the last 6 hours (count, event type, error code, service, time range), "
-                    + "and the services with no failures. With no failures, suggests checking device or network.")
+                    + "the services with no failures, and suggestedGuide: the live guide for that error code, for \"Run guide\". "
+                    + "With no failures, suggests checking device or network.")
     @ApiResponse(responseCode = "200", description = "The diagnosis")
     @ApiResponse(responseCode = "401", description = "UNAUTHORIZED", content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "403", description = "CALLER_NOT_VERIFIED, or FORBIDDEN",

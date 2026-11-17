@@ -2,13 +2,17 @@ package com.supportdesk.guide.controller;
 import com.supportdesk.guide.dto.GuideDtos.AnswerRequest;
 import com.supportdesk.guide.dto.GuideDtos.CompleteRunRequest;
 import com.supportdesk.guide.dto.GuideDtos.CompletedRunDto;
+import com.supportdesk.guide.dto.GuideDtos.FlagStepRequest;
 import com.supportdesk.guide.dto.GuideDtos.GuideRunDto;
 import com.supportdesk.guide.dto.GuideDtos.StartGuideRunRequest;
+import com.supportdesk.guide.dto.GuideDtos.StepFlagDto;
 import com.supportdesk.guide.service.GuideOutcomeService;
 import com.supportdesk.guide.service.GuideRunService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @PreAuthorize("hasRole('AGENT')")
@@ -22,6 +26,18 @@ public class GuideRunController implements GuideRunApi
     public GuideRunDto start(StartGuideRunRequest request)
     {
         return guideRunService.start(request);
+    }
+
+    @Override
+    public List<GuideRunDto> forTicket(Long ticketNumber)
+    {
+        return guideRunService.forTicket(ticketNumber);
+    }
+
+    @Override
+    public StepFlagDto flag(Long id, FlagStepRequest request)
+    {
+        return guideRunService.flag(id, request);
     }
 
     @Override

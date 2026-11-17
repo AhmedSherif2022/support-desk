@@ -117,7 +117,11 @@ public interface TicketApi
     @Operation(summary = "Get ticket by number",
             description = "The ticket, its SLA state, the steps the current user can take now (availableSteps), and "
                     + "any unfinished guide run (activeGuideRunId). The customer's name and CIF come without caller "
-                    + "verification: verification guards Customer 360 only.")
+                    + "verification: verification guards Customer 360 only.\n\n"
+                    + "The Work tab reads: guide runs from GET /api/guide-runs?ticket={number}; the note box from "
+                    + "the contacts endpoints; recent failures from GET /api/customers/{cif}/activity?service=<the "
+                    + "category's parent code> (needs a verified caller). The SRE panel (Azure DevOps integration) and "
+                    + "same-incident tickets (incidents) are not built yet.")
     @ApiResponse(responseCode = "200", description = "The ticket")
     @ApiResponse(responseCode = "400", description = "REQUEST_ERROR: ticket number is not a valid number",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
@@ -241,6 +245,7 @@ public interface TicketApi
                     + "- GUIDE_STARTED: after {guideRunId, guideId, guideTitle, version}\n"
                     + "- GUIDE_COMPLETED: after is the session summary {guideRunId, guideId, guideTitle, version, "
                     + "path, durationSeconds, outcome, outcomeType}\n"
+                    + "- GUIDE_STEP_FLAGGED: after {flagId, guideRunId, guideId, version, stepKey}\n"
                     + "- SLA_WARNING, SLA_BREACHED: by the system (userId null), after {percentUsed}\n\n"
                     + "Each row also carries the actor's endpoint, httpMethod and ipAddress, as recorded.")
     @ApiResponse(responseCode = "200", description = "Audit records")

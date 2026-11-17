@@ -51,7 +51,6 @@ public class TicketWorkspaceService
         ticket.recordCustomerContact(now);
         auditService.recordForCurrentUser(AuditAction.CUSTOMER_CONTACTED, TicketAuditListener.ENTITY,
                 String.valueOf(ticketNumber), null, Map.of("contactId", contact.getId()));
-        // TODO (E4 guides): log a guide outcome's customer script automatically as "Told customer: …".
         return toDto(contact);
     }
 

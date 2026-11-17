@@ -4,8 +4,10 @@ import com.supportdesk.common.exception.ApiError;
 import com.supportdesk.guide.dto.GuideDtos.AnswerRequest;
 import com.supportdesk.guide.dto.GuideDtos.CompleteRunRequest;      // E4-S3
 import com.supportdesk.guide.dto.GuideDtos.CompletedRunDto;         // E4-S3
+import com.supportdesk.guide.dto.GuideDtos.FlagStepRequest;
 import com.supportdesk.guide.dto.GuideDtos.GuideRunDto;
 import com.supportdesk.guide.dto.GuideDtos.StartGuideRunRequest;
+import com.supportdesk.guide.dto.GuideDtos.StepFlagDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -21,12 +23,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
+
+import java.util.List;
 
 @RequestMapping("/api/guide-runs")
 @PreAuthorize("hasRole('AGENT')")
 @Tag(name = "Guide runs", description = "Run a guide one question at a time: start it on a ticket, answer the current step, "
-        + "go back, and finish it on its outcome. A run stays on the version it started on.")   // E4-S3: "finish"
+        + "go back, finish it on its outcome, list a ticket's runs, and flag a step afterwards. A run stays on "
+        + "the version it started on.")   // E4-S3: "finish"
 public interface GuideRunApi
 {
     @PostMapping
@@ -56,6 +62,23 @@ public interface GuideRunApi
     @ApiResponse(responseCode = "422", description = "GUIDE_DOES_NOT_FIT (not a guide for this ticket), or INVALID_STATUS_TRANSITION (the ticket is not New, Troubleshooting or Waiting on Customer)",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     GuideRunDto start(@Valid @RequestBody StartGuideRunRequest request);
+
+    @GetMapping
+    @Operation(summary = "Guide runs on a ticket",
+            description = "Every run on the ticket, newest first, for the Work tab: each with its version, path, "
+                    + "status (IN_PROGRESS, OUTCOME_REACHED, COMPLETED or ABANDONED), outcome and times. Every run is "
+                    + "returned (no paging); an empty list means no guide was run.")
+    @ApiResponse(responseCode = "200", description = "The ticket's runs (may be empty)")
+    @ApiResponse(responseCode = "400", description = "REQUEST_ERROR: ticket is missing or not a number",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "401", description = "UNAUTHORIZED: no token, or it expired",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "403", description = "FORBIDDEN: not an AGENT",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "404", description = "TICKET_NOT_FOUND",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    List<GuideRunDto> forTicket(
+            @Parameter(description = "Ticket number, without the #.", example = "2002") @RequestParam("ticket") Long ticketNumber);
 
     @GetMapping("/{id}")
     @Operation(summary = "Get a run",
@@ -133,4 +156,28 @@ public interface GuideRunApi
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     CompletedRunDto complete(@Parameter(description = "Guide run id, from starting the run.", example = "17") @PathVariable Long id,
                              @Valid @RequestBody CompleteRunRequest request);
+
+    @PostMapping("/{id}/flags")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Flag a step",
+            description = "After a run is completed or abandoned, the agent reports a step that was wrong or "
+                    + "unclear: one on its path, or the step an abandoned run stopped on. The flag keeps the guide, the version the run used, the step, the comment, "
+                    + "the agent and the time, for the Guide Admin's feedback queue (not built yet). A step can be "
+                    + "flagged more than once. Audited as GUIDE_STEP_FLAGGED, without the comment.")
+    @ApiResponse(responseCode = "201", description = "The flag")
+    @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: no stepKey, an empty comment, or a comment "
+            + "longer than 1000 characters",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "401", description = "UNAUTHORIZED: no token, or it expired",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "403", description = "FORBIDDEN: not an AGENT",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "404", description = "GUIDE_RUN_NOT_FOUND",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "409", description = "GUIDE_RUN_NOT_FINISHED: the run is still open; finish it first",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    @ApiResponse(responseCode = "422", description = "INVALID_GUIDE_ROUTE: the step is not on this run's path (nor where an abandoned run stopped)",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
+    StepFlagDto flag(@Parameter(description = "Guide run id.", example = "17") @PathVariable Long id,
+                     @Valid @RequestBody FlagStepRequest request);
 }

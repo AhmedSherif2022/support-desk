@@ -94,7 +94,7 @@ public class GuideRun extends BaseEntity
     public GuideRunStatus status()
     {
         if (completedAt != null) {
-            return GuideRunStatus.COMPLETED;
+            return outcomeType != null ? GuideRunStatus.COMPLETED : GuideRunStatus.ABANDONED;
         }
         return walk().position() instanceof AtOutcome ? GuideRunStatus.OUTCOME_REACHED : GuideRunStatus.IN_PROGRESS;
     }

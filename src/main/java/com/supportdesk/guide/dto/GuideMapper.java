@@ -7,14 +7,17 @@ import com.supportdesk.guide.dto.GuideDtos.HintDto;
 import com.supportdesk.guide.dto.GuideDtos.OptionDto;
 import com.supportdesk.guide.dto.GuideDtos.OutcomeDto;
 import com.supportdesk.guide.dto.GuideDtos.RecommendedGuideDto;
+import com.supportdesk.guide.dto.GuideDtos.StepFlagDto;
 import com.supportdesk.guide.entity.Guide;
 import com.supportdesk.guide.entity.GuideRun;
+import com.supportdesk.guide.entity.GuideStepFlag;
 import com.supportdesk.guide.entity.GuideTree;
 import com.supportdesk.guide.entity.GuideTree.AtOutcome;
 import com.supportdesk.guide.entity.GuideTree.AtStep;
 import com.supportdesk.guide.entity.GuideTree.Taken;
 import com.supportdesk.guide.entity.GuideTree.Walk;
 import com.supportdesk.guide.entity.GuideVersion;
+import com.supportdesk.guide.enums.GuideMatchType;
 import com.supportdesk.ticket.entity.Ticket;
 
 import java.util.List;
@@ -47,7 +50,7 @@ public final class  GuideMapper
                         taken.get(i).answer().key(), taken.get(i).answer().label()))
                 .toList();
 
-        CurrentStepDto current = walk.position() instanceof AtStep at
+        CurrentStepDto current = run.isActive() && walk.position() instanceof AtStep at
                 ? currentStep(version.getTree(), at, taken.size() + 1, run.getTicket().customerErrorCode()) : null;
         OutcomeDto outcome = walk.position() instanceof AtOutcome(String key, GuideTree.Outcome outcome1)
                 ? new OutcomeDto(key, outcome1.type(), outcome1.result(),
@@ -56,7 +59,23 @@ public final class  GuideMapper
 
         return new GuideRunDto(run.getId(), run.getTicket().displayNumber(), version.getGuide().getId(),
                 version.getGuide().getTitle(), version.getVersionNumber(), run.status(), path, current, outcome,
-                run.getStartedAt(), run.getStartedBy().getFullName());
+                run.getStartedAt(), run.getStartedBy().getFullName(), run.getCompletedAt());
+    }
+
+    /** E2-S4: a guide found from a failure in the logs, before the ticket exists. */
+    public static RecommendedGuideDto toDto(GuideVersion version, String errorCode)
+    {
+        Guide guide = version.getGuide();
+        return new RecommendedGuideDto(guide.getId(), guide.getTitle(), version.getVersionNumber(),
+                GuideMatchType.ERROR_CODE, "Matches error " + errorCode);
+    }
+
+    public static StepFlagDto toDto(GuideStepFlag flag, String question)
+    {
+        GuideVersion version = flag.getRun().getPinnedVersion();
+        return new StepFlagDto(flag.getId(), flag.getRun().getId(), version.getGuide().getId(),
+                version.getGuide().getTitle(), version.getVersionNumber(), flag.getStepKey(), question,
+                flag.getComment(), flag.getFlaggedBy().getFullName(), flag.getFlaggedAt());
     }
 
     private static CurrentStepDto currentStep(GuideTree tree, AtStep at, int stepNumber, String customerErrorCode)
