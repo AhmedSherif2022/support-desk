@@ -50,10 +50,13 @@ public final class GuideDtos
             @Schema(description = "The version this run is pinned to.", example = "2") int version,
             @Schema(example = "IN_PROGRESS") GuideRunStatus status,
             @Schema(description = "Answers so far, first to last.") List<AnsweredStepDto> path,
-            @Schema(description = "Null once an outcome is reached.", nullable = true) CurrentStepDto currentStep,
-            @Schema(description = "Set once the answers lead to an outcome.", nullable = true) OutcomeDto outcome,
+            @Schema(description = "Null once an outcome is reached or the run has ended.", nullable = true) CurrentStepDto currentStep,
+            @Schema(description = "Set once the answers lead to an outcome. On an ABANDONED run it was reached but "
+                    + "never applied.", nullable = true) OutcomeDto outcome,
             @Schema(example = "2026-11-16T10:35:00Z") Instant startedAt,
-            @Schema(description = "Full name of the agent who started it.", example = "Mona") String startedBy)
+            @Schema(description = "Full name of the agent who started it.", example = "Mona") String startedBy,
+            @Schema(description = "When the run was completed or abandoned; null while it is open.",
+                    example = "2026-11-16T10:41:00Z", types = {"string", "null"}) Instant completedAt)
     {
     }
 
@@ -108,6 +111,30 @@ public final class GuideDtos
             @Schema(description = "The ticket's status after the outcome.", example = "RESOLVED")
             com.supportdesk.ticket.enums.TicketStatus ticketStatus,
             @Schema(description = "Logged to Customer contact as \"Told customer: …\".") String customerScript)
+    {
+    }
+
+    public record FlagStepRequest(
+            @Schema(description = "A stepKey from the run's path, or the step an abandoned run stopped on.", example = "other-device")
+            @NotBlank(message = "Say which step you are flagging.") String stepKey,
+            @Schema(description = "What was wrong or unclear about the step.",
+                    example = "The question does not say which device to try.")
+            @NotBlank(message = "Write what was wrong or unclear.")
+            @Size(max = 1000, message = "The comment can be at most 1000 characters.") String comment)
+    {
+    }
+
+    public record StepFlagDto(
+            @Schema(example = "5") Long id,
+            @Schema(example = "17") Long guideRunId,
+            @Schema(example = "3") Long guideId,
+            @Schema(example = "Login failed: server error") String guideTitle,
+            @Schema(description = "The version the run used, so the Guide Admin fixes the right one.", example = "2") int version,
+            @Schema(example = "other-device") String stepKey,
+            @Schema(example = "Can the customer log in on the web or on another device?") String question,
+            @Schema(example = "The question does not say which device to try.") String comment,
+            @Schema(description = "Full name of the agent who flagged it.", example = "Mona") String flaggedBy,
+            @Schema(example = "2026-11-16T10:45:00Z") Instant flaggedAt)
     {
     }
 }

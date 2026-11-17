@@ -148,19 +148,23 @@ class TicketWorkflowIntegrationTest
     // ---- Reviewer: SRE fixes In Review (Epic 5 takes the system steps there; here the database does) ----
 
     @Test
-    void reviewerApprovesOrRejectsAnSreFixAndOnlyTheReviewerCan() throws Exception
+    void theReviewerOrTheAgentApprovesOrRejectsAnSreFix() throws Exception
     {
         long approved = inReview();
         long rejected = inReview();
+        long agentApproved = inReview();
         String reviewer = tokenFor(Role.REVIEWER);
 
         mockMvc.perform(get("/api/review/tickets").header(HttpHeaders.AUTHORIZATION, reviewer))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].number", hasItems("#" + approved, "#" + rejected)));
-        mockMvc.perform(get("/api/review/tickets").header(HttpHeaders.AUTHORIZATION, token))
+        mockMvc.perform(get("/api/review/tickets").header(HttpHeaders.AUTHORIZATION, token))   // the agent too
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].number", hasItems("#" + agentApproved)));
+        mockMvc.perform(get("/api/review/tickets").header(HttpHeaders.AUTHORIZATION, tokenFor(Role.GUIDE_ADMIN)))
                 .andExpect(status().isForbidden());
-        step(approved, "REVIEWER_APPROVES").andExpect(status().isUnprocessableEntity())  // the agent cannot review
-                .andExpect(jsonPath("$.code").value("STEP_NOT_YOURS"));
+        review(token, agentApproved, "REVIEWER_APPROVES", null).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RESOLVED"));
 
         review(reviewer, approved, "REVIEWER_APPROVES", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RESOLVED"));
@@ -260,11 +264,11 @@ class TicketWorkflowIntegrationTest
                 .contentType(MediaType.APPLICATION_JSON).content("{\"step\":\"" + step + "\"}"));
     }
 
-    private ResultActions review(String reviewer, long number, String step, String reason) throws Exception
+    private ResultActions review(String user, long number, String step, String reason) throws Exception
     {
         String body = reason == null ? "{\"step\":\"" + step + "\"}"
                 : "{\"step\":\"" + step + "\",\"reason\":\"" + reason + "\"}";
-        return mockMvc.perform(post("/api/review/tickets/" + number + "/steps").header(HttpHeaders.AUTHORIZATION, reviewer)
+        return mockMvc.perform(post("/api/review/tickets/" + number + "/steps").header(HttpHeaders.AUTHORIZATION, user)
                 .contentType(MediaType.APPLICATION_JSON).content(body));
     }
 

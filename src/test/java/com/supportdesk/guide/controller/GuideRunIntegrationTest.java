@@ -163,7 +163,8 @@ class GuideRunIntegrationTest
 
         start(ticket, guide).andExpect(status().isCreated());                    // Details received, then a new run
         ticket(ticket).andExpect(jsonPath("$.status").value("TROUBLESHOOTING"));
-        run(first).andExpect(jsonPath("$.status").value("COMPLETED"));
+        run(first).andExpect(jsonPath("$.status").value("ABANDONED"))
+                .andExpect(jsonPath("$.completedAt").isNotEmpty());
         answer(first, "app-version", "yes").andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("GUIDE_RUN_NOT_ACTIVE"));
     }
@@ -246,6 +247,75 @@ class GuideRunIntegrationTest
         back(run, 0).andExpect(status().isUnprocessableEntity());
     }
 
+    // ---- E3-S5 Work tab ----
+
+    @Test
+    void theWorkTabListsEveryRunOfTheTicketNewestFirst() throws Exception
+    {
+        long ticket = createTicket(SARA, "LOGIN_FAILED", "MOBILE");
+        runs(ticket).andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(0)));
+
+        long guide = guideId("Login failed: server error");
+        long first = startRun(ticket, guide);
+        step(ticket, "REQUEST_DETAILS").andExpect(status().isOk());
+        long second = startRun(ticket, guide);
+
+        runs(ticket).andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].id").value(second))
+                .andExpect(jsonPath("$[0].status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$[0].completedAt").doesNotExist())
+                .andExpect(jsonPath("$[1].id").value(first))
+                .andExpect(jsonPath("$[1].status").value("ABANDONED"))
+                .andExpect(jsonPath("$[1].currentStep").doesNotExist());               // nothing left to answer
+        flag(first, "app-version", "I stopped here: unclear which version counts.")  // the step it stopped on
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.question").isNotEmpty());
+        runs(999_999_999L).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TICKET_NOT_FOUND"));
+    }
+
+    // ---- E4-S5 ----
+
+    @Test
+    void aStepOfAFinishedRunCanBeFlaggedAndTheAuditLeavesOutTheComment() throws Exception
+    {
+        long run = finishedEscalateRun();
+        run(run).andExpect(jsonPath("$.status").value("COMPLETED"));
+
+        flag(run, "other-device", "  The question does not say which device to try.  ")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.guideRunId").value(run))
+                .andExpect(jsonPath("$.guideTitle").value("Login failed: server error"))
+                .andExpect(jsonPath("$.version").value(2))
+                .andExpect(jsonPath("$.stepKey").value("other-device"))
+                .andExpect(jsonPath("$.question").value("Can the customer log in on the web or on another device?"))
+                .andExpect(jsonPath("$.comment").value("The question does not say which device to try."))
+                .andExpect(jsonPath("$.flaggedBy").value("Guide Test"))
+                .andExpect(jsonPath("$.flaggedAt").isNotEmpty());
+
+        long ticket = Long.parseLong(JsonPath.<String>read(run(run).andReturn().getResponse().getContentAsString(),
+                "$.ticketNumber").substring(1));
+        assertThat(auditRows(ticket, AuditAction.GUIDE_STEP_FLAGGED)).singleElement()
+                .satisfies(log -> assertThat(log.getAfterState()).contains("\"stepKey\":\"other-device\"")
+                        .doesNotContain("which device"));
+    }
+
+    @Test
+    void onlyAStepOnAFinishedRunsPathWithACommentCanBeFlagged() throws Exception
+    {
+        long open = startServerErrorRun();
+        answer(open, "app-version", "yes");
+        flag(open, "app-version", "Unclear.").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("GUIDE_RUN_NOT_FINISHED"));
+
+        long run = finishedEscalateRun();
+        flag(run, "no-such-step", "Unclear.").andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("INVALID_GUIDE_ROUTE"));
+        flag(run, "other-device", "   ").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors.comment").exists());
+        flag(999_999_999L, "other-device", "Unclear.").andExpect(status().isNotFound());
+    }
+
     @Test
     void anUnknownRunIs404() throws Exception
     {
@@ -253,6 +323,18 @@ class GuideRunIntegrationTest
                 .andExpect(jsonPath("$.code").value("GUIDE_RUN_NOT_FOUND"));
     }
 
+
+    /** Yes, no, no reaches the Escalate outcome; finishing it hands the ticket over. */
+    private long finishedEscalateRun() throws Exception
+    {
+        long run = startServerErrorRun();
+        answer(run, "app-version", "yes");
+        answer(run, "other-device", "no");
+        answer(run, "status-page", "no").andExpect(jsonPath("$.status").value("OUTCOME_REACHED"));
+        mockMvc.perform(post("/api/guide-runs/" + run + "/complete").header(HttpHeaders.AUTHORIZATION, token)
+                .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isOk());
+        return run;
+    }
 
     private long startServerErrorRun() throws Exception
     {
@@ -327,6 +409,19 @@ class GuideRunIntegrationTest
         return mockMvc.perform(post("/api/guide-runs/" + run + "/answers").header(HttpHeaders.AUTHORIZATION, token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"stepKey\":\"" + step + "\",\"answerKey\":\"" + answer + "\"}"));
+    }
+
+    private ResultActions runs(long ticket) throws Exception
+    {
+        return mockMvc.perform(get("/api/guide-runs").param("ticket", String.valueOf(ticket))
+                .header(HttpHeaders.AUTHORIZATION, token));
+    }
+
+    private ResultActions flag(long run, String step, String comment) throws Exception
+    {
+        return mockMvc.perform(post("/api/guide-runs/" + run + "/flags").header(HttpHeaders.AUTHORIZATION, token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"stepKey\":\"" + step + "\",\"comment\":\"" + comment + "\"}"));
     }
 
     private ResultActions back(long run, int position) throws Exception

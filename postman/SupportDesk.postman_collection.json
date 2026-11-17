@@ -731,7 +731,8 @@
                   "  pm.expect(d.topFailure.errorCode).to.eql('ERR_AUTH_503');",
                   "  pm.expect(d.topFailure.service).to.eql('AUTHENTICATION');",
                   "});",
-                  "pm.test('Lists services to rule out', () => pm.expect(d.servicesWithoutFailures).to.include('OTP'));"
+                  "pm.test('Lists services to rule out', () => pm.expect(d.servicesWithoutFailures).to.include('OTP'));",
+                  "pm.test('Offers Run guide for ERR_AUTH_503', () => pm.expect(d.suggestedGuide.matchedBy).to.eql('ERROR_CODE'));"
                 ]
               }
             }
@@ -1704,6 +1705,96 @@
             "url": "{{baseUrl}}/api/tickets/{{guideTicket}}/contacts",
             "header": [],
             "description": ""
+          }
+        },
+        {
+          "name": "Guide runs on the ticket (Work tab)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const runs = pm.response.json();",
+                  "pm.test('The finished run, with its outcome and end time', () => {",
+                  "    pm.expect(String(runs[0].id)).to.eql(String(pm.collectionVariables.get('guideRunId')));",
+                  "    pm.expect(runs[0].status).to.eql('COMPLETED');",
+                  "    pm.expect(runs[0].completedAt).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/guide-runs?ticket={{guideTicket}}",
+            "description": "Every run on the ticket, newest first. A run ended by a new start shows ABANDONED."
+          }
+        },
+        {
+          "name": "Flag a step (E4-S5)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const f = pm.response.json();",
+                  "pm.test('Keeps guide, version, step and agent', () => {",
+                  "    pm.expect(f.stepKey).to.eql('app-version');",
+                  "    pm.expect(f.version).to.be.a('number');",
+                  "    pm.expect(f.flaggedBy).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}/flags",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"app-version\",\n  \"comment\": \"Say where the customer finds the app version.\"\n}"
+            },
+            "description": "After the run, the agent reports a wrong or unclear step for the Guide Admin. Audited as GUIDE_STEP_FLAGGED."
+          }
+        },
+        {
+          "name": "Flag with an empty comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('The comment is required', () => pm.expect(pm.response.json().fieldErrors).to.have.property('comment'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{guideRunId}}/flags",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"app-version\",\n  \"comment\": \" \"\n}"
+            },
+            "description": "Sending is blocked without a comment."
           }
         },
         {

@@ -167,10 +167,13 @@ class TicketServiceTest
     {
         when(ticketRepository.findByTicketNumber(2001L)).thenReturn(Optional.of(ticket(TicketStatus.NEW)));
 
-        for (TicketStep step : java.util.List.of(TicketStep.HAND_OVER, TicketStep.GUIDE_SOLVED, TicketStep.REVIEWER_APPROVES)) {
+        for (TicketStep step : java.util.List.of(TicketStep.HAND_OVER, TicketStep.GUIDE_SOLVED)) {
             assertThatThrownBy(() -> service.takeStep(2001L, new TakeStepRequest(step, null)))
                     .isInstanceOf(StepNotYoursException.class);
         }
+        // The agent may take the review steps too; on a New ticket the status refuses it instead.
+        assertThatThrownBy(() -> service.takeStep(2001L, new TakeStepRequest(TicketStep.REVIEWER_APPROVES, null)))
+                .isInstanceOf(InvalidStatusTransitionException.class);
     }
 
     @Test

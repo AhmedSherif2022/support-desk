@@ -35,7 +35,8 @@ class TicketStepMachineTest
         assertThat(machine.available(TROUBLESHOOTING, StepActor.GUIDE))
                 .containsExactly(GUIDE_SOLVED, GUIDE_FOLLOW_UP, GUIDE_HAND_OVER);
         assertThat(machine.available(IN_REVIEW, StepActor.REVIEWER)).containsExactly(REVIEWER_APPROVES, REVIEWER_REJECTS);
-        assertThat(machine.available(IN_REVIEW, StepActor.AGENT)).isEmpty();
+        assertThat(machine.available(IN_REVIEW, StepActor.AGENT)).containsExactly(REVIEWER_APPROVES, REVIEWER_REJECTS);
+        assertThat(machine.available(IN_REVIEW, StepActor.GUIDE)).isEmpty();
         assertThat(machine.available(REOPENED, StepActor.SYSTEM)).containsExactly(FIX_FAILED);
         assertThat(machine.available(TROUBLESHOOTING, null)).isEmpty();          // GUIDE_ADMIN takes no steps
     }
@@ -44,8 +45,9 @@ class TicketStepMachineTest
     void someoneElsesStepIsRefused()
     {
         assertThatThrownBy(() -> machine.checkActor(HAND_OVER, StepActor.AGENT)).isInstanceOf(StepNotYoursException.class);
-        assertThatThrownBy(() -> machine.checkActor(REVIEWER_APPROVES, StepActor.AGENT)).isInstanceOf(StepNotYoursException.class);
+        assertThatThrownBy(() -> machine.checkActor(REVIEWER_APPROVES, StepActor.GUIDE)).isInstanceOf(StepNotYoursException.class);
         assertThatThrownBy(() -> machine.checkActor(APPLY_FIX, StepActor.REVIEWER)).isInstanceOf(StepNotYoursException.class);
         machine.checkActor(APPLY_FIX, StepActor.AGENT);
+        machine.checkActor(REVIEWER_APPROVES, StepActor.AGENT);                   // the agent can review too
     }
 }

@@ -59,14 +59,20 @@ The full reference, with every field and error code, is Swagger UI at `/swagger-
 |---|---|---|
 | `GET /api/tickets/categories` | Agent | The create form's categories: code, name, parent, `defaultPriority`, `referenceRequired` and `referenceHint`. Start the priority from `defaultPriority` (E3-S1). |
 | `POST /api/tickets/{number}/steps` | Agent | Moves a ticket by one named step (`PICK_UP_TICKET`, `REQUEST_DETAILS`, `DETAILS_RECEIVED`, `APPLY_FIX`, `ARCHIVE`). Replaces `PATCH /api/tickets/{number}/status`. The ticket's `availableSteps` lists the steps open now (E3-S2). |
-| `GET /api/review/tickets` | Reviewer | Tickets In Review, oldest first. It stays empty until Azure DevOps (E5) sends fixes to review. |
-| `POST /api/review/tickets/{number}/steps` | Reviewer | `REVIEWER_APPROVES` resolves the ticket; `REVIEWER_REJECTS` needs a reason and reopens it. |
+| `GET /api/review/tickets` | Agent, Reviewer | Tickets In Review, oldest first. It stays empty until Azure DevOps (E5) sends fixes to review. |
+| `GET /api/review/tickets/{number}` | Agent, Reviewer | One ticket to read before deciding. A Reviewer gets it without the customer's CIF and name. |
+| `POST /api/review/tickets/{number}/steps` | Agent, Reviewer | `REVIEWER_APPROVES` resolves the ticket; `REVIEWER_REJECTS` needs a reason and reopens it. |
+| `GET /api/guide-runs?ticket={number}` | Agent | The ticket's Work tab: every guide run on it, newest first, with version, path, status, outcome and times (E3-S5). |
+| `POST /api/guide-runs/{id}/flags` | Agent | Flags a wrong or unclear step of a completed or abandoned run, with a comment, for the Guide Admin. 409 `GUIDE_RUN_NOT_FINISHED` while the run is open; audited as `GUIDE_STEP_FLAGGED` (E4-S5). |
 
 Other changes:
 
 - **`activeGuideRunId` on the ticket** (`GET /api/tickets/{number}`): the unfinished guide run while the ticket is Troubleshooting, otherwise null. After a reload, reopen the run from it, because starting again gets 409 `GUIDE_RUN_ALREADY_ACTIVE` (E4-S2).
 - **`sort` on `GET /api/tickets`**: only `createdAt` (the default, newest first), `ticketNumber`, `priority`, `status` and `slaDueAt`. Any other field gets 400 `REQUEST_ERROR`.
 - **The Home "My tickets" badge** is `totalItems` of `GET /api/tickets?view=OPEN`.
+- **`suggestedGuide` on the diagnosis** (`GET /api/customers/{cif}/diagnosis`): the live guide for the top failure's error code, for "Run guide". A run needs a ticket: create it with `errorCode` set to `topFailure.errorCode` and a platform the customer failed on, then start the guide on it (E2-S4).
+- **Guide run status `ABANDONED`**: a run ended by a new start without its outcome applied. `COMPLETED` now always means the outcome was applied.
+- **Work tab recent failures** come from `GET /api/customers/{cif}/activity?service=<the category's parent code>`, which needs a verified caller. The SRE panel (E5) and same-incident tickets (E6) are not built yet.
 
 ### All endpoints
 
@@ -76,8 +82,8 @@ Other changes:
 | Audit (E1) | `GET /api/audit/logs` (Admin, Reviewer) |
 | Customers (E2) | `GET /api/customers/search` · `POST /api/customers/{cif}/verify` · `POST /api/customers/{cif}/verification-failed` · `GET /api/customers/{cif}/verification` · `POST /api/customers/{cif}/end-call` · `GET /api/customers/{cif}` · `POST /api/customers/{cif}/reveal` · `GET /api/customers/{cif}/diagnosis` · `GET /api/customers/{cif}/activity` · `GET /api/customers/{cif}/tickets` |
 | Tickets (E3) | `GET /api/tickets/categories` · `POST /api/tickets/precheck` · `POST /api/tickets` · `GET /api/tickets` · `GET /api/tickets/queue` · `GET /api/tickets/{number}` · `POST /api/tickets/{number}/steps` · `GET` and `POST /api/tickets/{number}/contacts` · `GET /api/tickets/{number}/timeline` · `GET /api/tickets/{number}/audit` |
-| Ticket review | `GET /api/review/tickets` · `POST /api/review/tickets/{number}/steps` (Reviewer) |
-| Guides (E4) | `GET /api/guides/recommended` · `POST /api/guide-runs` · `GET /api/guide-runs/{id}` · `POST /api/guide-runs/{id}/answers` · `DELETE /api/guide-runs/{id}/answers/{position}` · `POST /api/guide-runs/{id}/complete` |
+| Ticket review | `GET /api/review/tickets` · `GET /api/review/tickets/{number}` · `POST /api/review/tickets/{number}/steps` (Agent, Reviewer) |
+| Guides (E4) | `GET /api/guides/recommended` · `POST /api/guide-runs` · `GET /api/guide-runs?ticket={number}` · `GET /api/guide-runs/{id}` · `POST /api/guide-runs/{id}/answers` · `DELETE /api/guide-runs/{id}/answers/{position}` · `POST /api/guide-runs/{id}/complete` · `POST /api/guide-runs/{id}/flags` |
 
 ## E1 Access, roles and audit
 
@@ -87,7 +93,7 @@ Goal: only the right role sees each screen and field, and every important action
 
 As a portal user, I want to sign in and land on my role's home, so that I see only my work.
 
-- Given valid credentials, when I sign in, then I land on Home (Agent) or Review queue (Admin, Reviewer).
+- Given valid credentials, when I sign in, then I land on Home (Agent), Guide library (Admin: writes and edits guides and reads the agents' and reviewers' feedback on them) or Review queue (Reviewer: reviews guides and SRE fixes).
 - Given 5 failed attempts in 15 minutes, when I try again, then the account is locked for 15 minutes and USER_LOCKED is audited.
 - Given 30 minutes of inactivity, when I act, then I'm asked to sign in again and unsaved form text is kept.
 - Given I sign in, then USER_LOGIN is audited with role and IP.
@@ -214,8 +220,8 @@ As the bank, I want tickets to follow fixed states, so that reports and SLAs are
 
 - Given the state machine (New, Troubleshooting, Waiting on customer, Escalated, With SRE, SRE fixed, In Review, Resolved, Reopened, Closed), when any transition outside it is requested, then the API rejects it and TICKET_TRANSITION_REJECTED is audited.
 - Given each allowed transition, then TICKET_STATUS_CHANGED is audited with before and after.
-- Given SRE fixed, then the ticket goes to In Review, where a Reviewer approves the fix (Resolved) or rejects it with a reason (Reopened, back to SRE).
-- Given Resolved, then the Agent can Archive it (Closed); Reopened comes only from a Reviewer rejecting the SRE fix.
+- Given SRE fixed, then the ticket goes to In Review, where a Reviewer or the Agent approves the fix (Resolved) or rejects it with a reason (Reopened, back to SRE).
+- Given Resolved, then the Agent can Archive it (Closed); Reopened comes only from rejecting the SRE fix in review.
 
 ### E3-S3 SLA calculation
 
@@ -380,7 +386,7 @@ As an Agent, I want to nudge SRE without leaving the portal, so that a breached 
 
 As a Reviewer, I want to check the SRE fix before the ticket resolves, so that "fixed" means fixed for the customer.
 
-- Given a ticket In Review, then it is in my review queue with Approve and Reject; the Agent's pinned bar shows Wait for review.
+- Given a ticket In Review, then it is in my review queue with Approve and Reject; the Agent can approve or reject it too.
 - Given Approve, then the ticket resolves and the SLA stops.
 - Given Reject, then a reason is required, the ticket is Reopened, a reopen comment is posted to the work item, and it returns to With SRE.
 

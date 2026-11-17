@@ -60,6 +60,9 @@ class SupportDeskApplicationTests
                         .value(hasItem("integer")))
                 .andExpect(jsonPath("$.paths['/api/tickets/categories'].get.summary").value("Ticket categories"))
                 .andExpect(jsonPath("$.components.schemas.TicketDto.properties.activeGuideRunId").exists())
+                .andExpect(jsonPath("$.paths['/api/guide-runs'].get.summary").value("Guide runs on a ticket"))
+                .andExpect(jsonPath("$.paths['/api/guide-runs/{id}/flags'].post.summary").value("Flag a step"))
+                .andExpect(jsonPath("$.components.schemas.DiagnosisDto.properties.suggestedGuide").exists())
                 // the step machine: one shared schema per enum, each step described with its move
                 .andExpect(jsonPath("$.components.schemas.TicketStep.enum", hasSize(15)))
                 .andExpect(jsonPath("$.components.schemas.TicketStep.description",
