@@ -173,7 +173,8 @@ public interface GuideRunApi
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "404", description = "GUIDE_RUN_NOT_FOUND",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
-    @ApiResponse(responseCode = "409", description = "GUIDE_RUN_STILL_ACTIVE: the run is still in progress",
+    @ApiResponse(responseCode = "409", description = "GUIDE_RUN_STILL_ACTIVE: the run is still in progress; GUIDE_STEP_ALREADY_FLAGGED: this agent already "
+            + "flagged this step on this run (DATA_CONFLICT when two such flags arrive at the same moment)",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "422", description = "GUIDE_STEP_NOT_TAKEN: the step is not on the run's path, nor where an abandoned run stopped",
             content = @Content(schema = @Schema(implementation = ApiError.class)))

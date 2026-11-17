@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 /** Where an agent's step report stands in the Guide Admin's queue. */
 @Schema(enumAsRef = true, description = "Where a flagged step stands.\n"
         + "- OPEN: new, not handled yet\n"
-        + "- RESOLVED: the Guide Admin handled it (Mark done is not built yet)")
+        + "- RESOLVED: the Guide Admin marked it done (POST /api/admin/guide-feedback/{id}/done)")
 public enum GuideFeedbackStatus
 {
     OPEN,

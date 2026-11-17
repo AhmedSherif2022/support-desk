@@ -26,7 +26,7 @@ class TicketRulesTest
         assertThat(NextAction.resolve(TicketStatus.WITH_SRE, SlaState.AT_RISK, true)).isEqualTo(NextAction.ASK_SRE_FOR_UPDATE);
         assertThat(NextAction.resolve(TicketStatus.WITH_SRE, SlaState.BREACHED, true)).isEqualTo(NextAction.ASK_SRE_FOR_UPDATE);
         assertThat(NextAction.resolve(TicketStatus.SRE_FIXED, SlaState.ON_TRACK, true)).isEqualTo(NextAction.WAIT_FOR_REVIEW);
-        assertThat(NextAction.resolve(TicketStatus.IN_REVIEW, SlaState.ON_TRACK, true)).isEqualTo(NextAction.WAIT_FOR_REVIEW);
+        assertThat(NextAction.resolve(TicketStatus.IN_REVIEW, SlaState.ON_TRACK, true)).isEqualTo(NextAction.CONFIRM_FIX);
         assertThat(NextAction.resolve(TicketStatus.RESOLVED, SlaState.MET, true)).isEqualTo(NextAction.ARCHIVE);
         assertThat(NextAction.resolve(TicketStatus.CLOSED, SlaState.MET, true)).isNull();
     }

@@ -67,6 +67,12 @@ public class TicketCategory extends BaseEntity
     }
 
 
+    /** Usable for a new ticket: active, and so is its parent. */
+    public boolean isUsable()
+    {
+        return active && (parent == null || parent.isActive());
+    }
+
     public boolean isSubCategory()
     {
         return parent != null;

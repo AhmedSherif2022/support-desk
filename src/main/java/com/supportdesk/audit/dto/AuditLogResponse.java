@@ -15,8 +15,8 @@ public record AuditLogResponse(
         @Schema(example = "mona") String username,
         @Schema(example = "AGENT") Role role,
         @Schema(example = "TICKET_STATUS_CHANGED") AuditAction action,
-        @Schema(description = "What the record is about, for example TICKET (entityId is the ticket number) or "
-                + "CUSTOMER (entityId is the CIF).", example = "TICKET") String entity,
+        @Schema(description = "What the record is about: TICKET (entityId is the ticket number), CUSTOMER "
+                + "(entityId is the CIF) or GUIDE_FEEDBACK (entityId is the flag id).", example = "TICKET") String entity,
         @Schema(example = "2001") String entityId,
         @Schema(description = "JSON text of the state before the action; null when there was none. Its shape depends "
                 + "on the action (see the ticket Audit tab).") String before,

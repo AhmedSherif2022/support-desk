@@ -92,7 +92,8 @@ public interface TicketApi
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "404", description = "CUSTOMER_NOT_FOUND: unknown CIF",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
-    @ApiResponse(responseCode = "422", description = "CATEGORY_NOT_FOUND: unknown categoryCode",
+    @ApiResponse(responseCode = "422", description = "CATEGORY_NOT_FOUND: unknown categoryCode; CATEGORY_INACTIVE: "
+            + "the category or its parent is no longer used; SUBCATEGORY_REQUIRED: a top-level category",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     PrecheckDto precheck(@Valid @RequestBody PrecheckRequest request);
 
@@ -110,7 +111,7 @@ public interface TicketApi
     @ApiResponse(responseCode = "403", description = "FORBIDDEN: this role cannot open the queue",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     QueueResponse queue(
-            @Parameter(description = "ALL, AT_RISK (at risk or breached), IN_REVIEW (an SRE fix waiting for a reviewer: the screen's \"Confirm fix\" chip) or AUTO_CREATED. Omitted or empty means ALL.", example = "ALL")
+            @Parameter(description = "ALL, AT_RISK (at risk or breached), IN_REVIEW (an SRE fix on its way to review or waiting for confirmation: the screen's \"Confirm fix\" chip) or AUTO_CREATED. Omitted or empty means ALL.", example = "ALL")
             @RequestParam(required = false) QueueChip chip);
 
     @GetMapping("/{number}")

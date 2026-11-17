@@ -1,6 +1,7 @@
 package com.supportdesk.guide.repository;
 
 import com.supportdesk.guide.entity.GuideFeedback;
+import com.supportdesk.guide.enums.GuideFeedbackStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -11,4 +12,9 @@ public interface GuideFeedbackRepository extends JpaRepository<GuideFeedback, Lo
     // The admin queue shows the guide, version, agent and ticket of every row: fetch them in the one query.
     @EntityGraph(attributePaths = {"guideVersion", "guideVersion.guide", "agent", "run", "run.ticket"})
     Page<GuideFeedback> findAllBy(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"guideVersion", "guideVersion.guide", "agent", "run", "run.ticket"})
+    Page<GuideFeedback> findAllByStatus(GuideFeedbackStatus status, Pageable pageable);
+
+    boolean existsByRunIdAndStepKeyAndAgentId(Long runId, String stepKey, Long agentId);
 }

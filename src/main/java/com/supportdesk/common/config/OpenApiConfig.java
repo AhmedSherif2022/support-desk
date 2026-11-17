@@ -33,6 +33,9 @@ import org.springframework.context.annotation.Configuration;
                         **Review flow** (roles REVIEWER and AGENT)
                         `GET /api/review/tickets` lists the tickets In Review (a Reviewer gets them without the customer's CIF and name); `POST /api/review/tickets/{number}/steps` approves the SRE fix (`REVIEWER_APPROVES`, to Resolved) or rejects it with a reason (`REVIEWER_REJECTS`, to Reopened). Tickets reach In Review through the Azure DevOps integration (not built yet), so the list stays empty until then.
 
+                        **Guide Admin flow** (role GUIDE_ADMIN)
+                        `GET /api/admin/guide-feedback?status=OPEN` lists the steps agents flagged as wrong or unclear (its `totalItems` is the open count); `POST /api/admin/guide-feedback/{id}/done` marks one done.
+
                         **Errors** always come back as `{code, message, fieldErrors, path, timestamp}`; login lockouts and limits add `retryAt`, `retryAfterSeconds` and `attemptsLeft` when they apply.
                         `401 UNAUTHORIZED` means no or expired token; `403 FORBIDDEN` means your role may not open that area
                         (every 403 is written to the audit log).

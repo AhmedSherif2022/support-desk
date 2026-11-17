@@ -63,8 +63,9 @@ The full reference, with every field and error code, is Swagger UI at `/swagger-
 | `GET /api/review/tickets/{number}` | Agent, Reviewer | One ticket to read before deciding. A Reviewer gets it without the customer's CIF and name. |
 | `POST /api/review/tickets/{number}/steps` | Agent, Reviewer | `REVIEWER_APPROVES` resolves the ticket; `REVIEWER_REJECTS` needs a reason and reopens it. |
 | `GET /api/guide-runs?ticket={number}` | Agent | The ticket's Work tab: every guide run on it, newest first, with version, path, status, outcome and times (E3-S5). |
-| `POST /api/guide-runs/{id}/flags` | Agent | Flags a wrong or unclear step of a completed or abandoned run (a step it answered, or where an abandoned run stopped), with a comment. The report starts `OPEN` and keeps the pinned version. 409 `GUIDE_RUN_STILL_ACTIVE` while the run is open, 422 `GUIDE_STEP_NOT_TAKEN` for any other step; audited as `GUIDE_STEP_FLAGGED` without the comment (E4-S5). |
-| `GET /api/admin/guide-feedback` | Guide Admin | The Agent feedback queue: every flagged step, newest first, paged, with the guide, version, question, agent, comment and status (E4-S5). |
+| `POST /api/guide-runs/{id}/flags` | Agent | Flags a wrong or unclear step of a completed or abandoned run (a step it answered, or where an abandoned run stopped), with a comment. The report starts `OPEN` and keeps the pinned version. 409 `GUIDE_RUN_STILL_ACTIVE` while the run is open, 409 `GUIDE_STEP_ALREADY_FLAGGED` when the same agent already flagged that step of that run, 422 `GUIDE_STEP_NOT_TAKEN` for any other step; audited as `GUIDE_STEP_FLAGGED` without the comment (E4-S5). |
+| `GET /api/admin/guide-feedback` | Guide Admin | The Agent feedback queue: every flagged step, newest first, paged, with the guide, version, question, agent, comment and status. `?status=OPEN` lists the open ones; its `totalItems` is the open count for the nav (E4-S5, E8-S3). |
+| `POST /api/admin/guide-feedback/{id}/done` | Guide Admin | Mark done: the flag becomes `RESOLVED`, audited as `GUIDE_FEEDBACK_RESOLVED`. A second click changes nothing (E8-S3). |
 
 Other changes:
 
@@ -84,6 +85,7 @@ Other changes:
 | Customers (E2) | `GET /api/customers/search` · `POST /api/customers/{cif}/verify` · `POST /api/customers/{cif}/verification-failed` · `GET /api/customers/{cif}/verification` · `POST /api/customers/{cif}/end-call` · `GET /api/customers/{cif}` · `POST /api/customers/{cif}/reveal` · `GET /api/customers/{cif}/diagnosis` · `GET /api/customers/{cif}/activity` · `GET /api/customers/{cif}/tickets` |
 | Tickets (E3) | `GET /api/tickets/categories` · `POST /api/tickets/precheck` · `POST /api/tickets` · `GET /api/tickets` · `GET /api/tickets/queue` · `GET /api/tickets/{number}` · `POST /api/tickets/{number}/steps` · `GET` and `POST /api/tickets/{number}/contacts` · `GET /api/tickets/{number}/timeline` · `GET /api/tickets/{number}/audit` |
 | Ticket review | `GET /api/review/tickets` · `GET /api/review/tickets/{number}` · `POST /api/review/tickets/{number}/steps` (Agent, Reviewer) |
+| Guide feedback (E4, E8) | `GET /api/admin/guide-feedback` · `POST /api/admin/guide-feedback/{id}/done` (Guide Admin) |
 | Guides (E4) | `GET /api/guides/recommended` · `POST /api/guide-runs` · `GET /api/guide-runs?ticket={number}` · `GET /api/guide-runs/{id}` · `POST /api/guide-runs/{id}/answers` · `DELETE /api/guide-runs/{id}/answers/{position}` · `POST /api/guide-runs/{id}/complete` · `POST /api/guide-runs/{id}/flags` |
 
 ## E1 Access, roles and audit
@@ -94,7 +96,7 @@ Goal: only the right role sees each screen and field, and every important action
 
 As a portal user, I want to sign in and land on my role's home, so that I see only my work.
 
-- Given valid credentials, when I sign in, then I land on Home (Agent), Guide library (Admin: writes and edits guides and reads the agents' and reviewers' feedback on them) or Review queue (Reviewer: reviews guides and SRE fixes).
+- Given valid credentials, when I sign in, then I land on Home (Agent), Guide library (Admin: writes and edits guides, reads the agents' flagged steps and marks them done, and, with E7, reads the Reviewers' send-back notes) or Review queue (Reviewer: reviews guides and SRE fixes).
 - Given 5 failed attempts in 15 minutes, when I try again, then the account is locked for 15 minutes and USER_LOCKED is audited.
 - Given 30 minutes of inactivity, when I act, then I'm asked to sign in again and unsaved form text is kept.
 - Given I sign in, then USER_LOGIN is audited with role and IP.
@@ -247,7 +249,7 @@ As an Agent, I want one queue ordered by risk, so that I work top-down.
 
 As an Agent, I want the ticket to tell me the next step, so that nothing stalls.
 
-- Given the ticket status, then the pinned bar shows exactly one next step: Start guide, Pick up ticket, Escalate, Resume, Wait for SRE, Ask SRE for update, Wait for review, or Archive.
+- Given the ticket status, then the pinned bar shows exactly one next step: Start guide, Pick up ticket, Escalate, Resume, Wait for SRE, Ask SRE for update, Wait for review, Confirm fix, or Archive.
 - Given the Work tab, then guide runs, the read-only SRE panel, a note box, details, same-incident tickets and recent failures are shown.
 - Given Timeline, Customer contact and Audit tabs, then each shows its history newest first with counts in the tab label.
 
@@ -556,7 +558,7 @@ As an Admin, I want to know which guide to fix next, so that I spend time where 
 
 As an Admin, I want agents' flags in one list, so that I can act on them.
 
-- Given open flags, then each shows guide, step, comment, agent and time, with Fix in editor and Mark done.
+- Given open flags, then each shows guide, step, comment, agent and time, with Fix in editor and Mark done. (Mark done is built; Fix in editor comes with E7.)
 - Given the nav, then the open count is shown.
 
 ### E8-S4 Error rules and job view

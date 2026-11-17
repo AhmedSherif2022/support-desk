@@ -177,6 +177,19 @@ class TicketServiceTest
     }
 
     @Test
+    void aSubCategoryOfAnInactiveParentIsNotOffered()
+    {
+        TicketCategory parent = new TicketCategory("TRANSFERS", "Transfers", null, TicketPriority.HIGH, false,
+                null, null, null);
+        org.springframework.test.util.ReflectionTestUtils.setField(parent, "active", false);
+        TicketCategory child = new TicketCategory("TRANSFER_FAILED", "Transfer Failed", parent, TicketPriority.HIGH,
+                false, null, null, null);
+        when(categoryRepository.findByActiveTrueOrderByNameAsc()).thenReturn(java.util.List.of(child));
+
+        assertThat(service.categories()).isEmpty();
+    }
+
+    @Test
     void unknownTicketIs404()
     {
         when(ticketRepository.findByTicketNumber(anyLong())).thenReturn(Optional.empty());

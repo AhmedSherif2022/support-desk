@@ -2,6 +2,7 @@ package com.supportdesk.guide.controller;
 
 import com.supportdesk.common.dto.PageResponse;
 import com.supportdesk.guide.dto.GuideDtos.GuideFeedbackDto;
+import com.supportdesk.guide.enums.GuideFeedbackStatus;
 import com.supportdesk.guide.service.GuideFeedbackService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -16,8 +17,14 @@ public class GuideFeedbackAdminController implements GuideFeedbackAdminApi
     private final GuideFeedbackService guideFeedbackService;
 
     @Override
-    public PageResponse<GuideFeedbackDto> queue(Pageable pageable)
+    public PageResponse<GuideFeedbackDto> queue(GuideFeedbackStatus status, Pageable pageable)
     {
-        return PageResponse.of(guideFeedbackService.queue(pageable));
+        return PageResponse.of(guideFeedbackService.queue(status, pageable));
+    }
+
+    @Override
+    public GuideFeedbackDto markDone(Long id)
+    {
+        return guideFeedbackService.markDone(id);
     }
 }

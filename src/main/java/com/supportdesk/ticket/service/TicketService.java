@@ -121,6 +121,7 @@ public class TicketService
     public List<CategoryDto> categories()
     {
         return categoryRepository.findByActiveTrueOrderByNameAsc().stream()
+                .filter(TicketCategory::isUsable)                     // hides a sub-category of an inactive parent
                 .map(c -> new CategoryDto(c.getCode(), c.getName(), c.getParent() == null ? null : c.getParent().getCode(),
                         c.getDefaultPriority(), c.isReferenceRequired(), c.getReferenceHint()))
                 .toList();
@@ -132,6 +133,7 @@ public class TicketService
         Customer customer = customerLookup.getByCif(request.cif());
         verificationService.requireVerified(customer);
         TicketCategory category = findCategory(request.categoryCode());
+        validator.checkCategory(category);                              // the same refusals create gives
 
         List<PrecheckDto.Warning> warnings = new ArrayList<>();
         findOpenDuplicate(customer, category).ifPresent(existing -> warnings.add(new PrecheckDto.Warning(

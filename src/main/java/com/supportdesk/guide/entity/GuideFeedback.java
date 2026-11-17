@@ -56,4 +56,14 @@ public class GuideFeedback extends BaseEntity
         this.comment = comment.trim();
         this.status = GuideFeedbackStatus.OPEN;
     }
+
+    /** False when it was already done, so a second click records nothing. */
+    public boolean markDone()
+    {
+        if (status == GuideFeedbackStatus.RESOLVED) {
+            return false;
+        }
+        status = GuideFeedbackStatus.RESOLVED;
+        return true;
+    }
 }
