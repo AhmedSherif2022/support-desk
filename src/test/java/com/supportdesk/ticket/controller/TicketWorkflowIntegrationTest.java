@@ -163,6 +163,9 @@ class TicketWorkflowIntegrationTest
                 .andExpect(jsonPath("$[*].number", hasItems("#" + agentApproved)));
         mockMvc.perform(get("/api/review/tickets").header(HttpHeaders.AUTHORIZATION, tokenFor(Role.GUIDE_ADMIN)))
                 .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/tickets/" + agentApproved).header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(jsonPath("$.nextAction").value("CONFIRM_FIX"))
+                .andExpect(jsonPath("$.nextActionLabel").value("Confirm fix"));
         review(token, agentApproved, "REVIEWER_APPROVES", null).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RESOLVED"));
 

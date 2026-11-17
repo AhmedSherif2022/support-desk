@@ -124,7 +124,7 @@ class TicketQueryServiceTest
 
         assertThat(query.queue(QueueChip.IN_REVIEW).tickets()).singleElement()
                 .extracting(QueueTicketResponse::number, QueueTicketResponse::nextActionLabel)
-                .containsExactly("#2005", "Wait for review");
+                .containsExactly("#2005", "Confirm fix");
         assertThat(query.queue(QueueChip.AUTO_CREATED).tickets()).singleElement()
                 .extracting(QueueTicketResponse::number, QueueTicketResponse::origin, QueueTicketResponse::errorCode)
                 .containsExactly("#2006", TicketOrigin.AUTO_CREATED, "ERR_AUTH_503");

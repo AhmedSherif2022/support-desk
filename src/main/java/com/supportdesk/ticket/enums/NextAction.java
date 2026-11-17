@@ -14,7 +14,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
         + "- WAITING_ON_CUSTOMER: RESUME (take step DETAILS_RECEIVED)\n"
         + "- ESCALATED, REOPENED: WAIT_FOR_SRE (nothing to call)\n"
         + "- WITH_SRE: WAIT_FOR_SRE, or ASK_SRE_FOR_UPDATE once the SLA is at risk or breached (nothing to call yet)\n"
-        + "- SRE_FIXED, IN_REVIEW: WAIT_FOR_REVIEW (nothing to call; a Reviewer decides)\n"
+        + "- SRE_FIXED: WAIT_FOR_REVIEW (nothing to call; the fix is on its way to review)\n"
+        + "- IN_REVIEW: CONFIRM_FIX: the agent or a Reviewer approves or rejects the fix "
+        + "(`POST /api/review/tickets/{number}/steps` with REVIEWER_APPROVES or REVIEWER_REJECTS)\n"
         + "- RESOLVED: ARCHIVE (take step ARCHIVE)\n"
         + "- CLOSED: none (null)")
 public enum NextAction
@@ -26,6 +28,7 @@ public enum NextAction
     WAIT_FOR_SRE("Wait for SRE"),
     ASK_SRE_FOR_UPDATE("Ask SRE for update"),
     WAIT_FOR_REVIEW("Wait for review"),
+    CONFIRM_FIX("Confirm fix"),
     ARCHIVE("Archive");
 
     private final String label;
@@ -51,7 +54,8 @@ public enum NextAction
             case ESCALATED, REOPENED -> WAIT_FOR_SRE;
             // Waiting on SRE is fine until the SLA is in danger; then the agent chases them.
             case WITH_SRE -> sla == SlaState.AT_RISK || sla == SlaState.BREACHED ? ASK_SRE_FOR_UPDATE : WAIT_FOR_SRE;
-            case SRE_FIXED, IN_REVIEW -> WAIT_FOR_REVIEW;
+            case SRE_FIXED -> WAIT_FOR_REVIEW;
+            case IN_REVIEW -> CONFIRM_FIX;
             case RESOLVED -> ARCHIVE;
             case CLOSED -> null;
         };

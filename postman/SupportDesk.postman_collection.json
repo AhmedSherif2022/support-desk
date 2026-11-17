@@ -2241,7 +2241,7 @@
                 "value": "application/json"
               }
             ],
-            "description": "Only after the run is finished, and only for a step on its path. Audits GUIDE_STEP_FLAGGED on the ticket.",
+            "description": "Only after the run is finished, and only for a step on its path or where an abandoned run stopped. Once per agent, step and run. Audits GUIDE_STEP_FLAGGED on the ticket.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"stepKey\": \"other-device\",\n  \"comment\": \"The hint contradicts the question.\"\n}"
@@ -2340,6 +2340,36 @@
           }
         },
         {
+          "name": "Flag the same step again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('Once per agent, step and run', () => pm.expect(pm.response.json().code).to.eql('GUIDE_STEP_ALREADY_FLAGGED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/guide-runs/{{escalateRunId}}/flags",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stepKey\": \"other-device\",\n  \"comment\": \"Still unclear.\"\n}"
+            },
+            "description": "The same agent cannot flag the same step of the same run twice."
+          }
+        },
+        {
           "name": "Admin reads the feedback queue (newest first)",
           "event": [
             {
@@ -2364,6 +2394,103 @@
             "method": "GET",
             "url": "{{baseUrl}}/api/admin/guide-feedback?size=5",
             "description": "GUIDE_ADMIN only (youssef, logged in by folder 3). Paging: page, size, sort."
+          }
+        },
+        {
+          "name": "Admin: open flags and the open count (E8-S3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('The new flag is open; totalItems is the nav count', () => {",
+                  "    pm.expect(body.items[0].id).to.eql(Number(pm.collectionVariables.get('guideFeedbackId')));",
+                  "    pm.expect(body.items[0].status).to.eql('OPEN');",
+                  "    pm.expect(body.totalItems).to.be.at.least(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/guide-feedback?status=OPEN&size=1",
+            "description": "status=OPEN lists the open flags; totalItems is the open count for the nav."
+          }
+        },
+        {
+          "name": "Admin marks the flag done (E8-S3)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('RESOLVED', () => pm.expect(pm.response.json().status).to.eql('RESOLVED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/guide-feedback/{{guideFeedbackId}}/done",
+            "description": "Audited as GUIDE_FEEDBACK_RESOLVED on the flag."
+          }
+        },
+        {
+          "name": "Mark it done again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK, nothing changes', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().status).to.eql('RESOLVED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/guide-feedback/{{guideFeedbackId}}/done",
+            "description": "A second click records nothing."
           }
         },
         {

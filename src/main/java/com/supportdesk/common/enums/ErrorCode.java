@@ -51,6 +51,8 @@ public enum ErrorCode
     INVALID_GUIDE_ROUTE(HttpStatus.UNPROCESSABLE_ENTITY, "This answer does not fit the current step."),
     GUIDE_OUTCOME_NOT_REACHED(HttpStatus.CONFLICT, "Finish the guide's questions before completing it."),
     GUIDE_RUN_STILL_ACTIVE(HttpStatus.CONFLICT, "Finish the guide before flagging one of its steps."),
+    GUIDE_STEP_ALREADY_FLAGGED(HttpStatus.CONFLICT, "You already flagged this step on this run."),
+    GUIDE_FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "This feedback does not exist."),
     GUIDE_STEP_NOT_TAKEN(HttpStatus.UNPROCESSABLE_ENTITY, "Only a step taken during this run, or where an abandoned run stopped, can be flagged.");
 
     private final HttpStatus status;

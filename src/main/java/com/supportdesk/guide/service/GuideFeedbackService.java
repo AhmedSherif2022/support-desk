@@ -15,6 +15,8 @@ import com.supportdesk.guide.entity.GuideRun;
 import com.supportdesk.guide.entity.GuideTree.AtStep;
 import com.supportdesk.guide.entity.GuideTree.Taken;
 import com.supportdesk.guide.entity.GuideTree.Walk;
+import com.supportdesk.guide.enums.GuideFeedbackStatus;
+import com.supportdesk.guide.exception.GuideFeedbackNotFoundException;
 import com.supportdesk.guide.exception.GuideRunNotFoundException;
 import com.supportdesk.guide.repository.GuideFeedbackRepository;
 import com.supportdesk.guide.repository.GuideRunRepository;
@@ -36,6 +38,7 @@ public class GuideFeedbackService
 {
     // Plain columns only: a path like run.ticket.customer.nationalId would order rows by customer data (E1-S2).
     private static final Set<String> SORTABLE = Set.of("createdAt", "id", "status");
+    private static final String ENTITY = "GUIDE_FEEDBACK";
 
     private final GuideRunRepository runs;
     private final GuideFeedbackRepository feedback;
@@ -62,6 +65,10 @@ public class GuideFeedbackService
         }
 
         User agent = currentUserService.getCurrentUserEntity();     // never the client's idea of who flagged it
+        if (feedback.existsByRunIdAndStepKeyAndAgentId(runId, stepKey, agent.getId())) {
+            throw new BusinessRuleException(ErrorCode.GUIDE_STEP_ALREADY_FLAGGED,
+                    "You already flagged step '" + stepKey + "' on guide run " + runId + ".");
+        }
         GuideFeedback saved = feedback.save(new GuideFeedback(run, stepKey, agent, request.comment()));
 
         Map<String, Object> details = new LinkedHashMap<>();
@@ -83,12 +90,31 @@ public class GuideFeedbackService
     }
 
     @Transactional(readOnly = true)
-    public Page<GuideFeedbackDto> queue(Pageable pageable)
+    public Page<GuideFeedbackDto> queue(GuideFeedbackStatus status, Pageable pageable)
     {
         pageable.getSort().stream().filter(order -> !SORTABLE.contains(order.getProperty())).findFirst()
                 .ifPresent(order -> {
                     throw new ApiException(ErrorCode.REQUEST_ERROR, "Feedback cannot be sorted by " + order.getProperty() + ".");
                 });
-        return feedback.findAllBy(pageable).map(GuideMapper::toDto);
+        return (status == null ? feedback.findAllBy(pageable) : feedback.findAllByStatus(status, pageable))
+                .map(GuideMapper::toDto);
+    }
+
+    @Transactional   // the new status and GUIDE_FEEDBACK_RESOLVED commit together
+    public GuideFeedbackDto markDone(Long id)
+    {
+        GuideFeedback flag = feedback.findById(id).orElseThrow(() -> new GuideFeedbackNotFoundException(id));
+        if (flag.markDone()) {
+            Map<String, Object> after = new LinkedHashMap<>();
+            after.put("status", GuideFeedbackStatus.RESOLVED.name());
+            after.put("guideRunId", flag.getRun().getId());                // links back to GUIDE_STEP_FLAGGED on the ticket
+            after.put("ticketNumber", flag.getRun().getTicket().getTicketNumber());
+            after.put("guideId", flag.getGuideVersion().getGuide().getId());
+            after.put("version", flag.getGuideVersion().getVersionNumber());
+            after.put("stepKey", flag.getStepKey());
+            auditService.recordForCurrentUser(AuditAction.GUIDE_FEEDBACK_RESOLVED, ENTITY, String.valueOf(id),
+                    Map.of("status", GuideFeedbackStatus.OPEN.name()), after);
+        }
+        return GuideMapper.toDto(flag);
     }
 }

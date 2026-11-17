@@ -14,7 +14,7 @@ public class TicketValidator
 
     public void checkCategory(TicketCategory category)
     {
-        if (!category.isActive()) {
+        if (!category.isUsable()) {
             throw new BusinessRuleException(ErrorCode.CATEGORY_INACTIVE);
         }
         if (!category.isSubCategory()) {

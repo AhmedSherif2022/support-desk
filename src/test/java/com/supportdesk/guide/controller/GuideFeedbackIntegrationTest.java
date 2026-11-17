@@ -231,7 +231,62 @@ class GuideFeedbackIntegrationTest
                 .andExpect(status().isForbidden());
     }
 
+    // ---- once per agent, step and run (E4-S5) ----
+
+    @Test
+    void anAgentFlagsTheSameStepOfARunOnce() throws Exception
+    {
+        long run = completedEscalateRun(createTicket());
+        flagged(run, "app-version", "Unclear");
+        flag(run, "app-version", "Still unclear").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("GUIDE_STEP_ALREADY_FLAGGED"));
+        flagged(run, "other-device", "Another step is fine");
+    }
+
+    // ---- Mark done and the open count (E8-S3) ----
+
+    @Test
+    void theAdminMarksAFlagDoneOnceAndItLeavesTheOpenList() throws Exception
+    {
+        long id = flagged(completedEscalateRun(createTicket()), "app-version", "Unclear");
+        queue(adminToken, "?status=OPEN&size=1").andExpect(jsonPath("$.items[0].id").value(id));   // newest open
+
+        markDone(adminToken, id).andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.status").value("RESOLVED"));
+        markDone(adminToken, id).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("RESOLVED"));
+
+        assertThat(auditLogRepository.findByEntityAndEntityIdOrderByCreatedAtDescIdDesc("GUIDE_FEEDBACK", String.valueOf(id)))
+                .singleElement()                                            // the second click records nothing
+                .satisfies(log -> {
+                    assertThat(log.getAction()).isEqualTo(AuditAction.GUIDE_FEEDBACK_RESOLVED);
+                    assertThat(log.getBeforeState()).contains("\"status\":\"OPEN\"");
+                    assertThat(log.getAfterState()).contains("\"status\":\"RESOLVED\"")
+                            .contains("\"guideRunId\":").contains("\"ticketNumber\":");
+                });
+        String open = queue(adminToken, "?status=OPEN&size=100").andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(JsonPath.<List<Number>>read(open, "$.items[*].id")).extracting(Number::longValue).doesNotContain(id);
+        queue(adminToken, "?status=RESOLVED&size=1").andExpect(jsonPath("$.items[0].id").value(id));
+    }
+
+    @Test
+    void markDoneNeedsAnAdminAndAnExistingFlag() throws Exception
+    {
+        long id = flagged(completedEscalateRun(createTicket()), "app-version", "Unclear");
+        markDone(agentToken, id).andExpect(status().isForbidden());
+        markDone(adminToken, 999_999_999L).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("GUIDE_FEEDBACK_NOT_FOUND"));
+        queue(adminToken, "?status=MAYBE").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_ERROR"));
+    }
+
     // ---- helpers ----
+
+    private ResultActions markDone(String token, long id) throws Exception
+    {
+        return mockMvc.perform(post("/api/admin/guide-feedback/" + id + "/done").header(HttpHeaders.AUTHORIZATION, token));
+    }
 
     private void nothingWasRecorded(long ticket)
     {
