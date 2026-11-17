@@ -53,20 +53,22 @@ class PermissionMatrixTest
     // The agreed matrix, written out on purpose instead of read from Permissions:
     // a wrong edit to Permissions must make this test fail, not quietly change what it expects.
     private static final Map<String, Set<Role>> AREAS = Map.of(
-            "/api/admin/**",     Set.of(GUIDE_ADMIN),
-            "/api/review/**",    Set.of(REVIEWER),
-            "/api/audit/**",     Set.of(GUIDE_ADMIN, REVIEWER),
-            "/api/customers/**", Set.of(AGENT),
-            "/api/tickets/**",   Set.of(AGENT),
-            "/api/queue/**",     Set.of(AGENT),
-            "/api/guides/**",    Set.of(AGENT),
-            "/api/guide-runs/**", Set.of(AGENT));
+            "/api/admin/**",          Set.of(GUIDE_ADMIN),
+            "/api/library/**",        Set.of(GUIDE_ADMIN, REVIEWER),     // Guide library (read endpoints)
+            "/api/review/tickets/**", Set.of(AGENT, REVIEWER),           // Review tickets: approve / reject SRE fixes
+            "/api/review/**",         Set.of(REVIEWER),                  // Review queue: guide versions
+            "/api/audit/**",          Set.of(GUIDE_ADMIN, REVIEWER),
+            "/api/customers/**",      Set.of(AGENT),
+            "/api/tickets/**",        Set.of(AGENT),
+            "/api/queue/**",          Set.of(AGENT),
+            "/api/guides/**",         Set.of(AGENT),
+            "/api/guide-runs/**",     Set.of(AGENT));
 
     private static final Map<Role, List<String>> SCREENS = Map.of(
-            AGENT,       List.of("HOME", "CUSTOMER_SEARCH", "MY_TICKETS", "NOTIFICATIONS"),
+            AGENT,       List.of("HOME", "CUSTOMER_SEARCH", "MY_TICKETS", "REVIEW_TICKETS", "NOTIFICATIONS"),
             GUIDE_ADMIN, List.of("GUIDE_LIBRARY", "ERROR_RULES", "TRIAGE", "AGENT_FEEDBACK",
                     "GUIDE_ANALYTICS", "AUDIT_LOG", "NOTIFICATIONS"),
-            REVIEWER,    List.of("REVIEW_QUEUE", "AUDIT_LOG", "NOTIFICATIONS"));
+            REVIEWER,    List.of("REVIEW_QUEUE", "GUIDE_LIBRARY", "REVIEW_TICKETS", "AUDIT_LOG", "NOTIFICATIONS"));
 
     @Autowired
     private MockMvc mockMvc;
@@ -93,6 +95,15 @@ class PermissionMatrixTest
         assertThat(actual).isEqualTo(AREAS);
     }
 
+    @Test
+    void ticketReviewRuleComesBeforeTheWiderReviewRule()
+    {
+        // Spring uses the FIRST matching rule: if /api/review/** came first, the agent would get 403 on ticket review.
+        List<String> patterns = Permissions.RULES.stream().map(Permissions.Rule::pattern).toList();
+
+        assertThat(patterns.indexOf("/api/review/tickets/**")).isLessThan(patterns.indexOf("/api/review/**"));
+    }
+
     @ParameterizedTest(name = "{0}")
     @EnumSource(Role.class)
     void everyRoleHasAnAreaAndScreens(Role role)
@@ -117,11 +128,11 @@ class PermissionMatrixTest
         var result = mockMvc.perform(get(sampleUrl(area)).with(loggedInAs(role)));
 
         if (AREAS.get(area).contains(role)) {
-            // Let through by security; no controller exists yet, so anything but 401/403 is a pass.
+            // Let through by security; no controller is loaded in this test, so anything but 401/403 is a pass.
             assertThat(result.andReturn().getResponse().getStatus()).isNotIn(401, 403);
         } else {
             result.andExpect(status().isForbidden())
-                  .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+                    .andExpect(jsonPath("$.code").value("FORBIDDEN"));
         }
     }
 
@@ -135,8 +146,8 @@ class PermissionMatrixTest
     void everyAreaNeedsALogin(String area) throws Exception
     {
         mockMvc.perform(get(sampleUrl(area)))
-               .andExpect(status().isUnauthorized())
-               .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 
     @ParameterizedTest(name = "POST {0}")
@@ -162,18 +173,18 @@ class PermissionMatrixTest
     void meListsTheScreensOfTheLoggedInRole(Role role) throws Exception
     {
         mockMvc.perform(get("/api/auth/me").with(loggedInAs(role)))
-               .andExpect(status().isOk())
-               .andExpect(jsonPath("$.username").value(usernameOf(role)))
-               .andExpect(jsonPath("$.role").value(role.name()))
-               .andExpect(jsonPath("$.allowedScreens", contains(SCREENS.get(role).toArray())));   // same order
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(usernameOf(role)))
+                .andExpect(jsonPath("$.role").value(role.name()))
+                .andExpect(jsonPath("$.allowedScreens", contains(SCREENS.get(role).toArray())));   // same order
     }
 
     @Test
     void meNeedsALogin() throws Exception
     {
         mockMvc.perform(get("/api/auth/me"))
-               .andExpect(status().isUnauthorized())
-               .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -181,7 +192,7 @@ class PermissionMatrixTest
     void everyRoleCanLogOut(Role role) throws Exception
     {
         mockMvc.perform(post("/api/auth/logout").with(loggedInAs(role)))
-               .andExpect(status().isNoContent());
+                .andExpect(status().isNoContent());
 
         verify(authService).logout();
     }
@@ -190,7 +201,7 @@ class PermissionMatrixTest
     void logoutNeedsALogin() throws Exception
     {
         mockMvc.perform(post("/api/auth/logout"))
-               .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized());
     }
 
 

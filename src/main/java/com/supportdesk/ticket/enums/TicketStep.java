@@ -2,7 +2,9 @@ package com.supportdesk.ticket.enums;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+
+import java.util.EnumSet;
+import java.util.Set;
 
 import static com.supportdesk.ticket.enums.StepActor.AGENT;
 import static com.supportdesk.ticket.enums.StepActor.GUIDE;
@@ -23,6 +25,7 @@ import static com.supportdesk.ticket.enums.TicketStatus.WITH_SRE;
  * Every arrow of the agreed ticket diagram: who takes the step and the move it makes. The one source of truth:
  * TicketStatusMachine builds its allowed moves from this list. The SYSTEM steps come from Azure DevOps (Epic 5);
  * nothing takes them yet.
+ * A step has one main actor; the two review steps can also be taken by the agent.
  */
 @Schema(enumAsRef = true, description = "A step moves a ticket from one status to another. It names who takes it and the move it makes. Three moves have two steps: one taken by the agent or the system, one by a guide, so the audit shows who moved the ticket.\n"
         + "\n"
@@ -33,7 +36,7 @@ import static com.supportdesk.ticket.enums.TicketStatus.WITH_SRE;
         + "- `APPLY_FIX`: TROUBLESHOOTING → RESOLVED\n"
         + "- `ARCHIVE`: RESOLVED → CLOSED\n"
         + "\n"
-        + "**Reviewer** (`POST /api/review/tickets/{number}/steps`):\n"
+        + "**Reviewer or Agent** (`POST /api/review/tickets/{number}/steps`):\n"
         + "- `REVIEWER_APPROVES`: IN_REVIEW → RESOLVED\n"
         + "- `REVIEWER_REJECTS`: IN_REVIEW → REOPENED (reason required)\n"
         + "\n"
@@ -48,8 +51,7 @@ import static com.supportdesk.ticket.enums.TicketStatus.WITH_SRE;
         + "- `DEPLOY_FIX`: WITH_SRE → SRE_FIXED\n"
         + "- `SEND_TO_REVIEW`: SRE_FIXED → IN_REVIEW\n"
         + "- `FIX_FAILED`: REOPENED → WITH_SRE")
-@Getter
-@RequiredArgsConstructor
+@Getter                                   // Lombok: getActor(), getFrom(), getTo(), getActors()
 public enum TicketStep
 {
     PICK_UP_TICKET   (AGENT,    NEW,                 TROUBLESHOOTING),
@@ -68,10 +70,35 @@ public enum TicketStep
     SEND_TO_REVIEW   (SYSTEM,   SRE_FIXED,           IN_REVIEW),
     FIX_FAILED       (SYSTEM,   REOPENED,            WITH_SRE),
 
-    REVIEWER_APPROVES(REVIEWER, IN_REVIEW,           RESOLVED),
-    REVIEWER_REJECTS (REVIEWER, IN_REVIEW,           REOPENED);
+    REVIEWER_APPROVES(REVIEWER, IN_REVIEW,           RESOLVED, AGENT),   // the agent can approve too
+    REVIEWER_REJECTS (REVIEWER, IN_REVIEW,           REOPENED, AGENT);   // the agent can reject too
 
-    private final StepActor actor;
+    private final StepActor actor;        // the main actor (unchanged: docs, availableSteps, audit)
     private final TicketStatus from;
     private final TicketStatus to;
+    private final Set<StepActor> actors;  // everyone allowed to take the step: the main actor plus any extra
+
+    /** A step taken by one actor only. */
+    TicketStep(StepActor actor, TicketStatus from, TicketStatus to)
+    {
+        this.actor = actor;
+        this.from = from;
+        this.to = to;
+        this.actors = EnumSet.of(actor);
+    }
+
+    /** A step the main actor and some extra actors can take. */
+    TicketStep(StepActor actor, TicketStatus from, TicketStatus to, StepActor... alsoTakenBy)
+    {
+        this.actor = actor;
+        this.from = from;
+        this.to = to;
+        this.actors = EnumSet.of(actor, alsoTakenBy);
+    }
+
+    /** May this actor take the step? Use this instead of comparing getActor(). */
+    public boolean canBeTakenBy(StepActor who)
+    {
+        return actors.contains(who);
+    }
 }

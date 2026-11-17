@@ -22,20 +22,20 @@ public final class Permissions
     }
 
 
-
+    // Order matters: Spring uses the FIRST rule that matches, so narrower patterns go above broader ones.
     public static final List<Rule> RULES = List.of(
-            new Rule("/api/admin/**",     Set.of(Role.GUIDE_ADMIN)),
-            new Rule("/api/review/**",    Set.of(Role.REVIEWER)),
-            new Rule("/api/audit/**",     Set.of(Role.GUIDE_ADMIN, Role.REVIEWER)),
-            new Rule("/api/customers/**", Set.of(Role.AGENT)),
-            new Rule("/api/tickets/**",   Set.of(Role.AGENT)),
-            new Rule("/api/queue/**",     Set.of(Role.AGENT)),
-            new Rule("/api/guides/**",    Set.of(Role.AGENT)),          // E4: guides that fit a ticket
-            new Rule("/api/guide-runs/**", Set.of(Role.AGENT))          // E4: run a guide on a call
+            new Rule("/api/admin/**",          Set.of(Role.GUIDE_ADMIN)),
+            new Rule("/api/library/**",        Set.of(Role.GUIDE_ADMIN, Role.REVIEWER)),
+            new Rule("/api/review/tickets/**", Set.of(Role.AGENT, Role.REVIEWER)),
+            new Rule("/api/review/**",         Set.of(Role.REVIEWER)),
+            new Rule("/api/audit/**",          Set.of(Role.GUIDE_ADMIN, Role.REVIEWER)),
+            new Rule("/api/customers/**",      Set.of(Role.AGENT)),
+            new Rule("/api/tickets/**",        Set.of(Role.AGENT)),
+            new Rule("/api/queue/**",          Set.of(Role.AGENT)),
+            new Rule("/api/guides/**",         Set.of(Role.AGENT)),
+            new Rule("/api/guide-runs/**",     Set.of(Role.AGENT))
 
-            // Add when these packages are built (agree the URLs with the team):
-            // , new Rule("/api/escalations/**", Set.of(Role.AGENT))    // E5: escalate, ask SRE for update
-            // , new Rule("/api/incidents/**",   Set.of(Role.AGENT))    // E6: incident call list
+
     );
 
     public static final List<String> PUBLIC_POST = List.of(
@@ -54,10 +54,10 @@ public final class Permissions
 
     // Lists, not sets: /api/auth/me returns them in this order, so the menu order stays stable.
     private static final Map<Role, List<String>> SCREENS = new EnumMap<>(Map.of(
-            Role.AGENT,       List.of("HOME", "CUSTOMER_SEARCH", "MY_TICKETS", "NOTIFICATIONS"),
+            Role.AGENT,       List.of("HOME", "CUSTOMER_SEARCH", "MY_TICKETS", "REVIEW_TICKETS", "NOTIFICATIONS"),
             Role.GUIDE_ADMIN, List.of("GUIDE_LIBRARY", "ERROR_RULES", "TRIAGE", "AGENT_FEEDBACK",
                     "GUIDE_ANALYTICS", "AUDIT_LOG", "NOTIFICATIONS"),
-            Role.REVIEWER,    List.of("REVIEW_QUEUE", "AUDIT_LOG", "NOTIFICATIONS")));
+            Role.REVIEWER,    List.of("REVIEW_QUEUE", "GUIDE_LIBRARY", "REVIEW_TICKETS", "AUDIT_LOG", "NOTIFICATIONS")));
 
     public static List<String> screensFor(Role role)
     {
