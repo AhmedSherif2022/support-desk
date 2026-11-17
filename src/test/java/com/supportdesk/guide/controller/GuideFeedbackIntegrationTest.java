@@ -106,7 +106,7 @@ class GuideFeedbackIntegrationTest
                             .contains("\"guideRunId\":" + run)
                             .contains("\"version\":2")
                             .contains("\"stepKey\":\"other-device\"")
-                            .contains("\"status\":\"OPEN\"");
+                            .doesNotContain("contradicts");                 // the comment is not audited
                 });
     }
 
@@ -139,7 +139,7 @@ class GuideFeedbackIntegrationTest
         answer(run, "status-page", "no").andExpect(jsonPath("$.status").value("OUTCOME_REACHED"));   // but not finished
 
         flag(run, "app-version", "Unclear").andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("GUIDE_RUN_NOT_COMPLETED"));
+                .andExpect(jsonPath("$.code").value("GUIDE_RUN_STILL_ACTIVE"));
         nothingWasRecorded(ticket);
     }
 
@@ -200,6 +200,16 @@ class GuideFeedbackIntegrationTest
         queue(adminToken, "?size=2&page=1").andExpect(status().isOk())
                 .andExpect(jsonPath("$.page").value(1))
                 .andExpect(jsonPath("$.items[0].id").value(first));
+    }
+
+    @Test
+    void theQueueSortsOnlyByItsOwnColumns() throws Exception
+    {
+        for (String sort : List.of("run.ticket.customer.nationalId,asc", "agent.passwordHash", "bogus")) {
+            queue(adminToken, "?sort=" + sort).andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("REQUEST_ERROR"));
+        }
+        queue(adminToken, "?sort=status,asc").andExpect(status().isOk());
     }
 
     @Test

@@ -30,8 +30,13 @@ public interface GuideFeedbackAdminApi
     @Operation(summary = "Agent feedback queue",
             description = "Every flagged step, newest first, with the guide, the version the run was pinned to, the "
                     + "question as it read on that version, the agent, the comment and the status. "
-                    + "Paging: page (from 0), size (max 100), sort (e.g. createdAt,desc).")
+                    + "Every report can be flagged again, so a step may appear more than once. Paging: page (from 0), "
+                    + "size (default 20, max 100), sort by createdAt, id or status (default createdAt,desc then id,desc; "
+                    + "send both as sort=createdAt,desc&sort=id,desc to keep the tie-break).")
     @ApiResponse(responseCode = "200", description = "One page of flagged steps")
+    @ApiResponse(responseCode = "400", description = "REQUEST_ERROR: page or size is not a number, or sort names a "
+            + "field other than createdAt, id or status",
+            content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "401", description = "UNAUTHORIZED: no token, or it expired",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "403", description = "FORBIDDEN: not a GUIDE_ADMIN",

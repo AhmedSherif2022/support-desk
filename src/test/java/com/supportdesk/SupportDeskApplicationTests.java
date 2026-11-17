@@ -51,7 +51,7 @@ class SupportDeskApplicationTests
                 .andExpect(jsonPath("$.paths['/api/admin/guide-feedback'].get").exists())
                 .andExpect(jsonPath("$.components.schemas.QueueResponse").exists())
                 // agent APIs: every enum they expose is one shared, described schema; no backlog ids in titles
-                .andExpect(jsonPath("$.components.schemas['TicketPriority','SlaState','TicketOrigin','Platform','Segment','EnrollmentStatus','QueueChip','GuideRunStatus','OutcomeType','Role','AuditAction'].description", everyItem(not(emptyOrNullString()))))
+                .andExpect(jsonPath("$.components.schemas['TicketPriority','SlaState','TicketOrigin','Platform','Segment','EnrollmentStatus','QueueChip','GuideRunStatus','GuideFeedbackStatus','OutcomeType','Role','AuditAction'].description", everyItem(not(emptyOrNullString()))))
                 .andExpect(jsonPath("$.components.schemas.QueueTicketResponse.properties.slaState['$ref']")
                         .value("#/components/schemas/SlaState"))
                 .andExpect(jsonPath("$.paths['/api/customers/search'].get.summary").value("Search customers"))
@@ -62,6 +62,9 @@ class SupportDeskApplicationTests
                         .value(hasItem("integer")))
                 .andExpect(jsonPath("$.paths['/api/tickets/categories'].get.summary").value("Ticket categories"))
                 .andExpect(jsonPath("$.components.schemas.TicketDto.properties.activeGuideRunId").exists())
+                .andExpect(jsonPath("$.paths['/api/guide-runs'].get.summary").value("Guide runs on a ticket"))
+                .andExpect(jsonPath("$.paths['/api/guide-runs/{id}/flags'].post.summary").value("Flag a step"))
+                .andExpect(jsonPath("$.components.schemas.DiagnosisDto.properties.suggestedGuide").exists())
                 // the step machine: one shared schema per enum, each step described with its move
                 .andExpect(jsonPath("$.components.schemas.TicketStep.enum", hasSize(15)))
                 .andExpect(jsonPath("$.components.schemas.TicketStep.description",

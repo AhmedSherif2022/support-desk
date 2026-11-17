@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @PreAuthorize("hasRole('AGENT')")
 @RequiredArgsConstructor
@@ -26,6 +28,12 @@ public class GuideRunController implements GuideRunApi
     public GuideRunDto start(StartGuideRunRequest request)
     {
         return guideRunService.start(request);
+    }
+
+    @Override
+    public List<GuideRunDto> forTicket(Long ticketNumber)
+    {
+        return guideRunService.forTicket(ticketNumber);
     }
 
     @Override

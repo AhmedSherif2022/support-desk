@@ -68,7 +68,9 @@ class GuideVersionPinningIntegrationTest
                 username + "@test.local", mobile, Role.AGENT));
         token = "Bearer " + jwtService.generateToken(agent).token();
         verify(SARA);
-        guideId = liveVersion().getGuide().getId();
+        // Tests share the local database: put the seed back first in case an earlier run died mid-test.
+        guideId = jdbc.queryForObject("SELECT id FROM guides WHERE title = ?", Long.class, GUIDE);
+        restoreTheSeed();
         assertThat(liveVersion().getVersionNumber()).as("the seed's live version").isEqualTo(2);
     }
 
@@ -171,8 +173,10 @@ class GuideVersionPinningIntegrationTest
 
     private void setState(long guide, int versionNumber, GuideVersionState state)
     {
-        jdbc.update("UPDATE guide_versions SET state = ?, published_at = COALESCE(published_at, now()) "
-                + "WHERE guide_id = ? AND version_number = ?", state.name(), guide, versionNumber);
+        // A draft was never published; a live or retired version keeps (or gets) its publish time.
+        jdbc.update("UPDATE guide_versions SET state = ?, published_at = CASE WHEN ? = 'DRAFT' THEN NULL "
+                + "ELSE COALESCE(published_at, now()) END WHERE guide_id = ? AND version_number = ?",
+                state.name(), state.name(), guide, versionNumber);
     }
 
     private long versionIdOf(long run)

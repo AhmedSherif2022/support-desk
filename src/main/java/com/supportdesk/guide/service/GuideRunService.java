@@ -115,6 +115,14 @@ public class GuideRunService
         return GuideMapper.toDto(run);
     }
 
+    /** E3-S5 Work tab: every run on the ticket, newest first. */
+    @Transactional(readOnly = true)
+    public List<GuideRunDto> forTicket(Long ticketNumber)
+    {
+        Ticket ticket = ticketService.getEntity(ticketNumber);
+        return runs.findByTicketIdOrderByStartedAtDescIdDesc(ticket.getId()).stream().map(GuideMapper::toDto).toList();
+    }
+
     private GuideRun lockActive(Long runId)
     {
         GuideRun run = runs.findLockedById(runId).orElseThrow(() -> new GuideRunNotFoundException(runId));

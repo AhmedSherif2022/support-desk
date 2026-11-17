@@ -10,6 +10,7 @@ import com.supportdesk.ticket.enums.SlaState;
 import com.supportdesk.ticket.enums.TicketOrigin;
 import com.supportdesk.ticket.enums.TicketPriority;
 import com.supportdesk.ticket.enums.TicketStatus;
+import com.supportdesk.guide.dto.GuideDtos.RecommendedGuideDto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 
@@ -81,7 +82,13 @@ public final class Customer360Dtos
             String summary,
             @Schema(description = "Services with no failures in the window, so the agent can rule them out.",
                     example = "[\"OTP\", \"PAYMENTS\", \"TRANSFERS\"]")
-            List<String> servicesWithoutFailures)
+            List<String> servicesWithoutFailures,
+            @Schema(description = "The live guide for the top failure's error code on its platform, for the card's "
+                    + "\"Run guide\" button; null when none fits or there are no failures. A run needs a ticket: "
+                    + "create one with POST /api/tickets, sending errorCode = topFailure.errorCode and a platform the "
+                    + "customer failed on (without errorCode the ticket takes the latest failure, which may not fit), "
+                    + "then start the guide on it with POST /api/guide-runs.")
+            RecommendedGuideDto suggestedGuide)
     {
     }
 

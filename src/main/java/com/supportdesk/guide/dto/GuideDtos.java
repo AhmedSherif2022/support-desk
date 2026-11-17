@@ -51,10 +51,13 @@ public final class GuideDtos
             @Schema(description = "The version this run is pinned to.", example = "2") int version,
             @Schema(example = "IN_PROGRESS") GuideRunStatus status,
             @Schema(description = "Answers so far, first to last.") List<AnsweredStepDto> path,
-            @Schema(description = "Null once an outcome is reached.", nullable = true) CurrentStepDto currentStep,
-            @Schema(description = "Set once the answers lead to an outcome.", nullable = true) OutcomeDto outcome,
+            @Schema(description = "Null once an outcome is reached or the run has ended.", nullable = true) CurrentStepDto currentStep,
+            @Schema(description = "Set once the answers lead to an outcome. On an ABANDONED run it was reached but "
+                    + "never applied.", nullable = true) OutcomeDto outcome,
             @Schema(example = "2026-11-16T10:35:00Z") Instant startedAt,
-            @Schema(description = "Full name of the agent who started it.", example = "Mona") String startedBy)
+            @Schema(description = "Full name of the agent who started it.", example = "Mona") String startedBy,
+            @Schema(description = "When the run was completed or abandoned; null while it is open.",
+                    example = "2026-11-16T10:41:00Z", types = {"string", "null"}) Instant completedAt)
     {
     }
 
@@ -114,9 +117,11 @@ public final class GuideDtos
 
     // E4-S5
     public record FlagStepRequest(
-            @Schema(description = "A step from the run's path: one the agent actually answered.", example = "app-version")
+            @Schema(description = "A step from the run's path (one the agent actually answered), or the step an "
+                    + "abandoned run stopped on.", example = "app-version")
             @NotBlank(message = "Say which step you are flagging.") String stepKey,
-            @Schema(description = "What was wrong or unclear about it.", example = "This step is unclear")
+            @Schema(description = "What was wrong or unclear about it. The Guide Admin reads it as typed: no customer "
+                    + "details.", example = "This step is unclear")
             @NotBlank(message = "Say what was wrong or unclear.")
             @Size(max = 2000, message = "The comment can be at most 2000 characters.") String comment)
     {

@@ -20,6 +20,9 @@ import com.supportdesk.customer.entity.CustomerActivity;
 import com.supportdesk.customer.enums.Platform;
 import com.supportdesk.customer.enums.SensitiveField;
 import com.supportdesk.customer.repository.CustomerActivityRepository;
+import com.supportdesk.guide.dto.GuideDtos.RecommendedGuideDto;
+import com.supportdesk.guide.dto.GuideMapper;
+import com.supportdesk.guide.service.GuideMatcher;
 import com.supportdesk.ticket.entity.Ticket;
 import com.supportdesk.ticket.entity.TicketCategory;
 import com.supportdesk.ticket.repository.TicketCategoryRepository;
@@ -37,6 +40,8 @@ import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -62,6 +67,7 @@ public class Customer360Service
     private final TicketRepository ticketRepository;
     private final TicketCategoryRepository categoryRepository;
     private final AuditService auditService;
+    private final GuideMatcher guideMatcher;
     private final Clock clock;
 
     @Transactional   // writes CUSTOMER_DATA_VIEWED in the same transaction (E1-S4)
@@ -102,7 +108,7 @@ public class Customer360Service
         List<String> failingServices = failures.stream().map(CustomerActivity::getService).distinct().toList();
         List<String> servicesWithoutFailures = services().stream().filter(s -> !failingServices.contains(s)).toList();
         if (failures.isEmpty()) {
-            return new DiagnosisDto(hours(DIAGNOSIS_WINDOW), false, null, NO_FAILURES, servicesWithoutFailures);
+            return new DiagnosisDto(hours(DIAGNOSIS_WINDOW), false, null, NO_FAILURES, servicesWithoutFailures, null);
         }
 
         // Most frequent (event type, error code, service); a tie goes to the most recent.
@@ -113,11 +119,18 @@ public class Customer360Service
                         group.get(0).getService(), group.get(group.size() - 1).getOccurredAt(), group.get(0).getOccurredAt()))
                 .max(Comparator.comparingLong(FailureSummary::count).thenComparing(FailureSummary::lastAt))
                 .orElseThrow();
-        // TODO (E6 incidents / E4 guides): name a matching open incident and offer "Run guide" once those exist.
+        // TODO (E6 incidents): name a matching open incident once incidents exist.
         String summary = "%d failed %s %s with %s on %s in the last %d hours.".formatted(top.count(), top.eventType(),
                 top.count() == 1 ? "event" : "events", top.errorCode() == null ? "no error code" : top.errorCode(),
                 top.service(), hours(DIAGNOSIS_WINDOW));
-        return new DiagnosisDto(hours(DIAGNOSIS_WINDOW), true, top, summary, servicesWithoutFailures);
+        Set<Platform> platforms = failures.stream()
+                .filter(a -> a.getEventType().equals(top.eventType()) && a.getService().equals(top.service())
+                        && Objects.equals(a.getErrorCode(), top.errorCode()))
+                .map(CustomerActivity::getPlatform)
+                .collect(Collectors.toSet());
+        RecommendedGuideDto guide = top.errorCode() == null ? null : guideMatcher.forError(top.errorCode(), platforms)
+                .map(version -> GuideMapper.toDto(version, top.errorCode())).orElse(null);
+        return new DiagnosisDto(hours(DIAGNOSIS_WINDOW), true, top, summary, servicesWithoutFailures, guide);
     }
 
     @Transactional(readOnly = true)

@@ -21,7 +21,7 @@ public class AuditQueryService
 
     @Transactional(readOnly = true)
     public Page<AuditLog> search(String username, AuditAction action, String entity, String entityId,
-                                    Instant from, Instant to, Pageable pageable)
+                                 Instant from, Instant to, Pageable pageable)
     {
         Specification<AuditLog> spec = Specification.<AuditLog>where(equal("username", username))
                 .and(equal("action", action))

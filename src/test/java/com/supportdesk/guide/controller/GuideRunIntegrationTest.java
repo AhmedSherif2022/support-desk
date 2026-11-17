@@ -163,7 +163,8 @@ class GuideRunIntegrationTest
 
         start(ticket, guide).andExpect(status().isCreated());                    // Details received, then a new run
         ticket(ticket).andExpect(jsonPath("$.status").value("TROUBLESHOOTING"));
-        run(first).andExpect(jsonPath("$.status").value("COMPLETED"));
+        run(first).andExpect(jsonPath("$.status").value("ABANDONED"))
+                .andExpect(jsonPath("$.completedAt").isNotEmpty());
         answer(first, "app-version", "yes").andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("GUIDE_RUN_NOT_ACTIVE"));
     }
@@ -244,6 +245,32 @@ class GuideRunIntegrationTest
         back(run, 1).andExpect(jsonPath("$.currentStep.stepKey").value("app-version"))
                 .andExpect(jsonPath("$.path", hasSize(0)));
         back(run, 0).andExpect(status().isUnprocessableEntity());
+    }
+
+    // ---- E3-S5 Work tab ----
+
+    @Test
+    void theWorkTabListsEveryRunOfTheTicketNewestFirst() throws Exception
+    {
+        long ticket = createTicket(SARA, "LOGIN_FAILED", "MOBILE");
+        runs(ticket).andExpect(status().isOk()).andExpect(jsonPath("$", hasSize(0)));
+
+        long guide = guideId("Login failed: server error");
+        long first = startRun(ticket, guide);
+        step(ticket, "REQUEST_DETAILS").andExpect(status().isOk());
+        long second = startRun(ticket, guide);
+
+        runs(ticket).andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].id").value(second))
+                .andExpect(jsonPath("$[0].status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$[0].completedAt").doesNotExist())
+                .andExpect(jsonPath("$[1].id").value(first))
+                .andExpect(jsonPath("$[1].status").value("ABANDONED"))
+                .andExpect(jsonPath("$[1].currentStep").doesNotExist());               // nothing left to answer
+        flag(first, "app-version", "I stopped here: unclear which version counts.")  // the step it stopped on
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.question").isNotEmpty());
+        runs(999_999_999L).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TICKET_NOT_FOUND"));
     }
 
     @Test
@@ -327,6 +354,19 @@ class GuideRunIntegrationTest
         return mockMvc.perform(post("/api/guide-runs/" + run + "/answers").header(HttpHeaders.AUTHORIZATION, token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"stepKey\":\"" + step + "\",\"answerKey\":\"" + answer + "\"}"));
+    }
+
+    private ResultActions runs(long ticket) throws Exception
+    {
+        return mockMvc.perform(get("/api/guide-runs").param("ticket", String.valueOf(ticket))
+                .header(HttpHeaders.AUTHORIZATION, token));
+    }
+
+    private ResultActions flag(long run, String step, String comment) throws Exception
+    {
+        return mockMvc.perform(post("/api/guide-runs/" + run + "/flags").header(HttpHeaders.AUTHORIZATION, token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"stepKey\":\"" + step + "\",\"comment\":\"" + comment + "\"}"));
     }
 
     private ResultActions back(long run, int position) throws Exception

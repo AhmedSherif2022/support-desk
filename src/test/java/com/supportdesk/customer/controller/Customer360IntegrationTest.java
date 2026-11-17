@@ -181,7 +181,10 @@ class Customer360IntegrationTest
                 .andExpect(jsonPath("$.topFailure.firstAt").isNotEmpty())
                 .andExpect(jsonPath("$.summary").value("3 failed LOGIN events with ERR_AUTH_503 on AUTHENTICATION in the last 6 hours."))
                 .andExpect(jsonPath("$.servicesWithoutFailures", hasItems("OTP", "PAYMENTS", "TRANSFERS", "MOBILE_APP")))
-                .andExpect(jsonPath("$.servicesWithoutFailures", not(hasItem("AUTHENTICATION"))));
+                .andExpect(jsonPath("$.servicesWithoutFailures", not(hasItem("AUTHENTICATION"))))
+                .andExpect(jsonPath("$.suggestedGuide.title").value("Login failed: server error"))   // E2-S4 Run guide
+                .andExpect(jsonPath("$.suggestedGuide.liveVersion").value(2))
+                .andExpect(jsonPath("$.suggestedGuide.matchedBy").value("ERROR_CODE"));
     }
 
     @Test
@@ -191,7 +194,8 @@ class Customer360IntegrationTest
 
         open(AHMED, "/diagnosis").andExpect(jsonPath("$.hasFailures").value(false))
                 .andExpect(jsonPath("$.summary").value("No failures in the last 6 hours. Check the customer's device or network."))
-                .andExpect(jsonPath("$.servicesWithoutFailures.length()").value(5));
+                .andExpect(jsonPath("$.servicesWithoutFailures.length()").value(5))
+                .andExpect(jsonPath("$.suggestedGuide").doesNotExist());
     }
 
     // ---- E2-S5 activity ----

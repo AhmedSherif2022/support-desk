@@ -25,13 +25,13 @@ import org.springframework.context.annotation.Configuration;
                         3. The access token lasts 15 minutes: get a new one with `POST /api/auth/refresh`.
 
                         **Agent flow** (role AGENT)
-                        1. Find the caller with `GET /api/customers/search` and verify them with `POST /api/customers/{cif}/verify` (at least two checks, for example on `CIF-100245`).
+                        1. Find the caller with `GET /api/customers/search` and verify them with `POST /api/customers/{cif}/verify` (at least two checks, for example on `CIF-100245`). `GET /api/customers/{cif}/diagnosis` names the top failure and, in `suggestedGuide`, the guide for "Run guide".
                         2. Open a ticket: `GET /api/tickets/categories` for the form (each category's `defaultPriority`), `POST /api/tickets/precheck` for warnings, then `POST /api/tickets`.
-                        3. Work it: `GET /api/tickets/{number}` shows the pinned next step and `availableSteps`; move it with `POST /api/tickets/{number}/steps`, or run a guide from `GET /api/guides/recommended` with `POST /api/guide-runs`.
+                        3. Work it: `GET /api/tickets/{number}` shows the pinned next step and `availableSteps`; move it with `POST /api/tickets/{number}/steps`, or run a guide from `GET /api/guides/recommended` with `POST /api/guide-runs`. The Work tab lists the ticket's runs with `GET /api/guide-runs?ticket={number}`; after a run, flag a wrong or unclear step with `POST /api/guide-runs/{id}/flags`.
                         4. Home: `GET /api/tickets/queue` (chips `ALL`, `AT_RISK`, `IN_REVIEW`, `AUTO_CREATED`) is the team's open tickets by SLA risk; `GET /api/tickets` is the agent's own list.
 
-                        **Reviewer flow** (role REVIEWER)
-                        `GET /api/review/tickets` lists the tickets In Review; `POST /api/review/tickets/{number}/steps` approves the SRE fix (`REVIEWER_APPROVES`, to Resolved) or rejects it with a reason (`REVIEWER_REJECTS`, to Reopened). Tickets reach In Review through the Azure DevOps integration (not built yet), so the list stays empty until then.
+                        **Review flow** (roles REVIEWER and AGENT)
+                        `GET /api/review/tickets` lists the tickets In Review (a Reviewer gets them without the customer's CIF and name); `POST /api/review/tickets/{number}/steps` approves the SRE fix (`REVIEWER_APPROVES`, to Resolved) or rejects it with a reason (`REVIEWER_REJECTS`, to Reopened). Tickets reach In Review through the Azure DevOps integration (not built yet), so the list stays empty until then.
 
                         **Errors** always come back as `{code, message, fieldErrors, path, timestamp}`; login lockouts and limits add `retryAt`, `retryAfterSeconds` and `attemptsLeft` when they apply.
                         `401 UNAUTHORIZED` means no or expired token; `403 FORBIDDEN` means your role may not open that area
