@@ -14,7 +14,9 @@ import io.swagger.v3.oas.annotations.media.Schema;
         + "- SLA_WARNING, SLA_BREACHED: a ticket's SLA became at risk, or breached\n"
         + "- GUIDE_STARTED, GUIDE_COMPLETED: a troubleshooting guide was started or finished on a ticket\n"
         + "- GUIDE_STEP_FLAGGED: an agent reported a step of a finished run as wrong or unclear\n"
-        + "- GUIDE_FEEDBACK_RESOLVED: the Guide Admin marked a flagged step done")
+        + "- GUIDE_FEEDBACK_RESOLVED: the Guide Admin marked a flagged step done\n"
+        + "- MONITOR_JOB_RUN: the monitor job ran (rows read, tickets created, duplicates, grouped, unknown codes)\n"
+        + "- ERROR_EVENT_JOINED: a detected error joined a customer's open ticket instead of making a new one")
 public enum AuditAction {
     ACCESS_DENIED,
     USER_LOGIN,
@@ -33,6 +35,8 @@ public enum AuditAction {
     GUIDE_STARTED,
     GUIDE_COMPLETED,
     GUIDE_STEP_FLAGGED,
-    GUIDE_FEEDBACK_RESOLVED
-    }
+    GUIDE_FEEDBACK_RESOLVED,
+    MONITOR_JOB_RUN,
+    ERROR_EVENT_JOINED
+}
 

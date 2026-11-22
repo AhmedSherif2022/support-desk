@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -38,4 +39,9 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
 
     @Query(value = "SELECT nextval('ticket_number_seq')", nativeQuery = true)
     Long nextTicketNumber();
+
+
+    // E6-S2: open ticket (any origin) for the same customer + error code, opened since the duplicate window began.
+    Optional<Ticket> findFirstByCustomerIdAndErrorCodeAndStatusNotInAndCreatedAtAfterOrderByCreatedAtDesc(
+            Long customerId, String errorCode, Collection<TicketStatus> closedStatuses, Instant since);
 }
