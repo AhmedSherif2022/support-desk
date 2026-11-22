@@ -52,3 +52,8 @@ springdoc:
   swagger-ui:
     persist-authorization: true   # keep the pasted token when the Swagger page reloads
     tags-sorter: alpha
+  monitor:
+    enabled: true
+    interval: 1m
+    batch-size: 100
+    duplicate-window: 24h

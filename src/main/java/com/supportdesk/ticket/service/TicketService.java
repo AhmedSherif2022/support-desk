@@ -4,6 +4,7 @@ import com.supportdesk.auth.entity.User;
 import com.supportdesk.auth.service.CurrentUserService;
 import com.supportdesk.customer.enums.ActivityResult;
 import com.supportdesk.customer.entity.Customer;
+import com.supportdesk.customer.enums.Platform;
 import com.supportdesk.customer.entity.CustomerActivity;
 import com.supportdesk.customer.repository.CustomerActivityRepository;
 import com.supportdesk.customer.service.CallerVerificationService;
@@ -39,6 +40,7 @@ import com.supportdesk.ticket.repository.TicketRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -114,6 +116,25 @@ public class TicketService
         events.publishEvent(new TicketCreatedEvent(ticket.getId(), ticket.getTicketNumber(),
                 customer.getId(), agent.getId()));
         return toDto(ticket);
+    }
+
+
+    /**
+     * E6-S1: a ticket opened by the monitor job from a detected error. No caller to verify and no agent:
+     * createdBy and assignee stay empty, origin is AUTO_CREATED, and TICKET_CREATED is audited without a user.
+     * Joins the caller's transaction so the ticket and the processed error row commit together.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Ticket createSystemTicket(Customer customer, TicketCategory category, String title, String description,
+                                     TicketPriority priority, Platform platform, String errorCode, Instant now)
+    {
+        Ticket ticket = new Ticket(ticketRepository.nextTicketNumber(), customer, category, title,
+                description, priority, TicketOrigin.AUTO_CREATED, platform,
+                errorCode, null, null, now, slaService.dueAt(priority, now));
+        ticketRepository.save(ticket);
+
+        events.publishEvent(new TicketCreatedEvent(ticket.getId(), ticket.getTicketNumber(), customer.getId(), null));
+        return ticket;
     }
 
 
