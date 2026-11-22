@@ -1,11 +1,13 @@
 package com.supportdesk.monitor.repository;
 import com.supportdesk.monitor.entity.DetectedErrorEvent;
+import com.supportdesk.ticket.enums.TicketStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 public interface DetectedErrorEventRepository extends JpaRepository<DetectedErrorEvent, Long>
@@ -35,4 +37,21 @@ public interface DetectedErrorEventRepository extends JpaRepository<DetectedErro
 
 
     List<DetectedErrorEvent> findByTicketIdOrderByOccurredAtDesc(Long ticketId);
+
+
+    /**
+     * E6-S3: errors that may still form or join an incident — handled rows (CREATED or DUPLICATE) whose automatic
+     * ticket is still open and not linked to any incident yet. Ordered so one pass can walk them group by group.
+     */
+    @Query("""
+            SELECT e FROM DetectedErrorEvent e
+            JOIN FETCH e.ticket t
+            WHERE e.outcome IN (com.supportdesk.monitor.enums.EventOutcome.CREATED,
+                                com.supportdesk.monitor.enums.EventOutcome.DUPLICATE)
+              AND t.origin = com.supportdesk.ticket.enums.TicketOrigin.AUTO_CREATED
+              AND t.status NOT IN :closedStatuses
+              AND NOT EXISTS (SELECT 1 FROM IncidentTicket it WHERE it.ticket = t)
+            ORDER BY e.errorCode, e.platform, e.occurredAt, e.id
+            """)
+    List<DetectedErrorEvent> findGroupingCandidates(@Param("closedStatuses") Collection<TicketStatus> closedStatuses);
 }

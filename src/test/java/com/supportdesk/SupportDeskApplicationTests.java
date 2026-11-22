@@ -30,8 +30,15 @@ class SupportDeskApplicationTests
         mockMvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tags[*].name", containsInAnyOrder("Audit", "Auth", "Customers", "Tickets",
-                        "Guides", "Guide runs", "Guide feedback", "Ticket review")))
+                        "Guides", "Guide runs", "Guide feedback", "Ticket review", "Monitor job", "Incidents",
+                        "Incident settings")))
                 .andExpect(jsonPath("$.paths['/api/auth/login'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/incidents'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/incidents/{id}'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/incidents/{id}/tickets'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/admin/incident-settings'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/admin/incident-settings'].put").exists())
+                .andExpect(jsonPath("$.components.schemas.IncidentStatus.description", not(emptyOrNullString())))
                 .andExpect(jsonPath("$.paths['/api/audit/logs'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/customers/{cif}'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/customers/{cif}/verify'].post").exists())

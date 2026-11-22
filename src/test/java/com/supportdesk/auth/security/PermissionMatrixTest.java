@@ -52,17 +52,18 @@ class PermissionMatrixTest
 
     // The agreed matrix, written out on purpose instead of read from Permissions:
     // a wrong edit to Permissions must make this test fail, not quietly change what it expects.
-    private static final Map<String, Set<Role>> AREAS = Map.of(
-            "/api/admin/**",          Set.of(GUIDE_ADMIN),
-            "/api/library/**",        Set.of(GUIDE_ADMIN, REVIEWER),     // Guide library (read endpoints)
-            "/api/review/tickets/**", Set.of(AGENT, REVIEWER),           // Review tickets: approve / reject SRE fixes
-            "/api/review/**",         Set.of(REVIEWER),                  // Review queue: guide versions
-            "/api/audit/**",          Set.of(GUIDE_ADMIN, REVIEWER),
-            "/api/customers/**",      Set.of(AGENT),
-            "/api/tickets/**",        Set.of(AGENT),
-            "/api/queue/**",          Set.of(AGENT),
-            "/api/guides/**",         Set.of(AGENT),
-            "/api/guide-runs/**",     Set.of(AGENT));
+    private static final Map<String, Set<Role>> AREAS = Map.ofEntries(
+            Map.entry("/api/admin/**",          Set.of(GUIDE_ADMIN)),
+            Map.entry("/api/library/**",        Set.of(GUIDE_ADMIN, REVIEWER)),     // Guide library (read endpoints)
+            Map.entry("/api/review/tickets/**", Set.of(AGENT, REVIEWER)),           // Review tickets: approve / reject SRE fixes
+            Map.entry("/api/review/**",         Set.of(REVIEWER)),                  // Review queue: guide versions
+            Map.entry("/api/audit/**",          Set.of(GUIDE_ADMIN, REVIEWER)),
+            Map.entry("/api/customers/**",      Set.of(AGENT)),
+            Map.entry("/api/tickets/**",        Set.of(AGENT)),
+            Map.entry("/api/queue/**",          Set.of(AGENT)),
+            Map.entry("/api/guides/**",         Set.of(AGENT)),
+            Map.entry("/api/guide-runs/**",     Set.of(AGENT)),
+            Map.entry("/api/incidents/**",      Set.of(AGENT)));                    // E6-S3: grouped outages (read)
 
     private static final Map<Role, List<String>> SCREENS = Map.of(
             AGENT,       List.of("HOME", "CUSTOMER_SEARCH", "MY_TICKETS", "REVIEW_TICKETS", "NOTIFICATIONS"),

@@ -16,7 +16,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
         + "- GUIDE_STEP_FLAGGED: an agent reported a step of a finished run as wrong or unclear\n"
         + "- GUIDE_FEEDBACK_RESOLVED: the Guide Admin marked a flagged step done\n"
         + "- MONITOR_JOB_RUN: the monitor job ran (rows read, tickets created, duplicates, grouped, unknown codes)\n"
-        + "- ERROR_EVENT_JOINED: a detected error joined a customer's open ticket instead of making a new one")
+        + "- ERROR_EVENT_JOINED: a detected error joined a customer's open ticket instead of making a new one\n"
+        + "- INCIDENT_CREATED: enough different customers hit the same error on the same platform, so their tickets "
+        + "were grouped into one incident and set to CRITICAL\n"
+        + "- SETTING_CHANGED: the Guide Admin changed a runtime setting (the record holds the old and new value)")
 public enum AuditAction {
     ACCESS_DENIED,
     USER_LOGIN,
@@ -37,6 +40,8 @@ public enum AuditAction {
     GUIDE_STEP_FLAGGED,
     GUIDE_FEEDBACK_RESOLVED,
     MONITOR_JOB_RUN,
-    ERROR_EVENT_JOINED
+    ERROR_EVENT_JOINED,
+    INCIDENT_CREATED,
+    SETTING_CHANGED
 }
 
