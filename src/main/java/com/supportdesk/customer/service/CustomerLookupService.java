@@ -18,7 +18,7 @@ public class CustomerLookupService
     @Transactional(readOnly = true)
     public Customer getByCif(String cif)
     {
-        String clean = cif == null ? "" : cif.trim();
+        String clean = CifFormat.normalize(cif);          // "100245" works as well as "CIF-100245"
         return customerRepository.findByCifIgnoreCase(clean)
                 .orElseThrow(() -> new CustomerNotFoundException(clean));
     }

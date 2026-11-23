@@ -17,4 +17,15 @@ public interface TicketCategoryRepository extends JpaRepository<TicketCategory, 
 
     @EntityGraph(attributePaths = "parent")
     List<TicketCategory> findByActiveTrueOrderByNameAsc();
+
+
+    // Admin screens: every category (active or not), top-level ones and the sub-categories under one parent.
+    List<TicketCategory> findByParentIsNullOrderByNameAsc();
+
+    List<TicketCategory> findByParentIdOrderByNameAsc(Long parentId);
+
+    @EntityGraph(attributePaths = "parent")
+    List<TicketCategory> findByParentIsNotNullOrderByNameAsc();
+
+    boolean existsByCodeIgnoreCase(String code);
 }

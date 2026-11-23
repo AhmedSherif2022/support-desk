@@ -4,6 +4,7 @@ import com.supportdesk.auth.service.CurrentUserService;
 import com.supportdesk.common.dto.PageResponse;
 import com.supportdesk.common.enums.ErrorCode;
 import com.supportdesk.common.exception.ApiException;
+import com.supportdesk.customer.service.CifFormat;
 import com.supportdesk.ticket.enums.TicketListView;
 import com.supportdesk.ticket.dto.TicketWorkspaceDtos.TicketListRow;
 import com.supportdesk.ticket.entity.Ticket;
@@ -54,20 +55,33 @@ public class TicketListService
         };
     }
 
-    /** "#2001" / "2001" match the ticket number; anything else matches the customer's CIF. */
-    private static Specification<Ticket> search(String q)
+    /**
+     * "#2001" matches the ticket number only. A plain number ("2001", "100245") matches the ticket number
+     * or the customer's CIF number (no "CIF-" needed). Anything else ("CIF-100245") matches the CIF.
+     */
+    static Specification<Ticket> search(String q)
     {
         if (q == null || q.isBlank()) {
             return null;
         }
         String text = q.trim();
-        String digits = text.startsWith("#") ? text.substring(1) : text;
-        if (digits.matches("\\d{1,9}")) {
-            long number = Long.parseLong(digits);
-            return (root, query, cb) -> cb.equal(root.get("ticketNumber"), number);
-        }
         // TODO (E5 escalation): also match Azure DevOps work item numbers once tickets store them.
-        return (root, query, cb) -> cb.equal(cb.upper(root.get("customer").get("cif")), text.toUpperCase());
+        if (text.startsWith("#")) {
+            String digits = text.substring(1);
+            return digits.matches("\\d{1,9}") ? byTicketNumber(Long.parseLong(digits)) : byCif(text);
+        }
+        Specification<Ticket> cif = byCif(CifFormat.normalize(text));
+        return text.matches("\\d{1,9}") ? byTicketNumber(Long.parseLong(text)).or(cif) : cif;
+    }
+
+    private static Specification<Ticket> byTicketNumber(long number)
+    {
+        return (root, query, cb) -> cb.equal(root.get("ticketNumber"), number);
+    }
+
+    private static Specification<Ticket> byCif(String cif)
+    {
+        return (root, query, cb) -> cb.equal(cb.upper(root.get("customer").get("cif")), cif.toUpperCase());
     }
 
     private static TicketListRow toRow(Ticket t)
