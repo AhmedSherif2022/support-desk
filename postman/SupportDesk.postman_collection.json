@@ -33,7 +33,11 @@
     { "key": "escalateTicket", "value": "" },
     { "key": "escalateRunId", "value": "" },
     { "key": "longNotes", "value": "" },
-    { "key": "guideFeedbackId", "value": "" }
+    { "key": "guideFeedbackId", "value": "" },
+    { "key": "monitorRunId", "value": "" },
+    { "key": "incidentId", "value": "" },
+    { "key": "incidentMinCustomers", "value": "" },
+    { "key": "incidentWindowMinutes", "value": "" }
   ],
   "item": [
     {
@@ -2594,6 +2598,421 @@
             "url": "{{baseUrl}}/api/guides/recommended?ticket={{noGuideTicket}}",
             "header": [],
             "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Automatic tickets and incidents (E6)",
+      "description": "Runs after folder 3 has logged in mona (AGENT) and youssef (GUIDE_ADMIN). The local seed has ERR_AUTH_503 on MOBILE from five customers within 15 minutes, so the monitor job has grouped them into one incident (it runs every minute; the first request runs it at once).",
+      "item": [
+        {
+          "name": "Admin runs the monitor job now",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const run = pm.response.json();",
+                  "pm.test('A finished run with its numbers', () => {",
+                  "    pm.expect(run.finishedAt).to.be.a('string');",
+                  "    pm.expect(run.error).to.eql(null);",
+                  "    pm.expect(run).to.include.all.keys('rowsRead', 'created', 'duplicates', 'grouped', 'unknownCodes', 'failed');",
+                  "});",
+                  "pm.collectionVariables.set('monitorRunId', run.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/monitor/run",
+            "description": "Processes waiting error rows, then groups new automatic tickets into incidents."
+          }
+        },
+        {
+          "name": "Admin reads the job runs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('The run just made is listed (a scheduled run may come before it)', () => pm.expect(pm.response.json().items.map(r => r.id)).to.include(Number(pm.collectionVariables.get('monitorRunId'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/monitor/runs?size=5",
+            "description": "Newest first, paged."
+          }
+        },
+        {
+          "name": "Agent cannot run the monitor job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/admin/monitor/run",
+            "description": "The admin area is not mona's."
+          }
+        },
+        {
+          "name": "Incidents: the seeded ERR_AUTH_503 outage",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const page = pm.response.json();",
+                  "const incident = page.items.find(i => i.errorCode === 'ERR_AUTH_503' && i.platform === 'MOBILE');",
+                  "pm.test('Grouped into one incident with at least 5 customers', () => {",
+                  "    pm.expect(incident, 'ERR_AUTH_503 / MOBILE incident').to.exist;",
+                  "    pm.expect(incident.affectedCustomerCount).to.be.at.least(5);",
+                  "    pm.expect(incident.ticketCount).to.be.at.least(5);",
+                  "});",
+                  "pm.collectionVariables.set('incidentId', incident ? incident.id : '');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/incidents?status=ALL&size=100",
+            "description": "status=ALL also finds it if someone already moved it on; OPEN is the default."
+          }
+        },
+        {
+          "name": "One incident",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const i = pm.response.json();",
+                  "pm.test('Error code, platform and times', () => {",
+                  "    pm.expect(i.id).to.eql(Number(pm.collectionVariables.get('incidentId')));",
+                  "    pm.expect(i.errorCode).to.eql('ERR_AUTH_503');",
+                  "    pm.expect(i.platform).to.eql('MOBILE');",
+                  "    pm.expect(new Date(i.firstOccurredAt) <= new Date(i.lastOccurredAt)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/incidents/{{incidentId}}",
+            "description": "One incident by id."
+          }
+        },
+        {
+          "name": "Tickets linked to the incident",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const tickets = pm.response.json();",
+                  "pm.test('Every linked ticket is CRITICAL', () => {",
+                  "    pm.expect(tickets.length).to.be.at.least(5);",
+                  "    tickets.forEach(t => pm.expect(t.priority).to.eql('CRITICAL'));",
+                  "});",
+                  "pm.test('Customers named by CIF and name only', () => pm.expect(tickets[0]).to.not.have.any.keys('nationalId', 'mobile'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/incidents/{{incidentId}}/tickets",
+            "description": "In the order they were linked."
+          }
+        },
+        {
+          "name": "Admin reads the incident's audit trail",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json().items;",
+                  "pm.test('Opened once, later waves recorded as INCIDENT_TICKETS_LINKED', () => {",
+                  "    pm.expect(rows.filter(r => r.action === 'INCIDENT_CREATED')).to.have.lengthOf(1);",
+                  "    rows.forEach(r => pm.expect(['INCIDENT_CREATED', 'INCIDENT_TICKETS_LINKED']).to.include(r.action));",
+                  "});",
+                  "pm.test('A system action, with the tickets and customer count', () => {",
+                  "    const created = rows.find(r => r.action === 'INCIDENT_CREATED');",
+                  "    pm.expect(created.userId).to.eql(null);",
+                  "    pm.expect(created.after).to.include('ticketNumbers').and.include('affectedCustomerCount');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/audit/logs?entity=INCIDENT&entityId={{incidentId}}&size=50",
+            "description": "INCIDENT_CREATED when the incident opened; INCIDENT_TICKETS_LINKED each time later tickets joined it."
+          }
+        },
+        {
+          "name": "Agent cannot read the audit log",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/audit/logs?entity=INCIDENT&entityId={{incidentId}}",
+            "description": "The audit log is for the Guide Admin and the Reviewer."
+          }
+        },
+        {
+          "name": "An incident that does not exist",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('INCIDENT_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/incidents/999999",
+            "description": "Unknown id."
+          }
+        },
+        {
+          "name": "Incidents with an unknown status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Error code', () => pm.expect(pm.response.json().code).to.eql('REQUEST_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/incidents?status=MAYBE",
+            "description": "OPEN, SRE_FIXED, RESOLVED or ALL only."
+          }
+        },
+        {
+          "name": "Admin reads the grouping thresholds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const s = pm.response.json();",
+                  "pm.test('Whole numbers of at least 1', () => {",
+                  "    pm.expect(s.minAffectedCustomers).to.be.at.least(1);",
+                  "    pm.expect(s.groupingWindowMinutes).to.be.at.least(1);",
+                  "});",
+                  "pm.collectionVariables.set('incidentMinCustomers', s.minAffectedCustomers);",
+                  "pm.collectionVariables.set('incidentWindowMinutes', s.groupingWindowMinutes);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/incident-settings",
+            "description": "Defaults: 5 customers, 15 minutes."
+          }
+        },
+        {
+          "name": "Admin sends a zero threshold",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('The field is named', () => {",
+                  "    pm.expect(pm.response.json().code).to.eql('VALIDATION_FAILED');",
+                  "    pm.expect(pm.response.json().fieldErrors).to.have.property('minAffectedCustomers');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/admin/incident-settings",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minAffectedCustomers\": 0,\n  \"groupingWindowMinutes\": 15\n}"
+            },
+            "description": "Both values must be at least 1."
+          }
+        },
+        {
+          "name": "Admin saves the same thresholds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Unchanged', () => pm.expect(pm.response.json().minAffectedCustomers).to.eql(Number(pm.collectionVariables.get('incidentMinCustomers'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/admin/incident-settings",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minAffectedCustomers\": {{incidentMinCustomers}},\n  \"groupingWindowMinutes\": {{incidentWindowMinutes}}\n}"
+            },
+            "description": "Re-sends the values in force, so the run changes nothing; a real change is audited SETTING_CHANGED."
+          }
+        },
+        {
+          "name": "Agent cannot change the thresholds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/admin/incident-settings",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minAffectedCustomers\": 5,\n  \"groupingWindowMinutes\": 15\n}"
+            },
+            "description": "Guide Admin only."
           }
         }
       ]

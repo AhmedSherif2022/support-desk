@@ -196,7 +196,7 @@ class SecurityErrorWriterTest {
     }
 
     @Test
-    void handle_nonAuthenticatedUserPrincipal_publishesEventWithNullUserIdAndUsername() throws IOException {
+    void handle_userDetailsPrincipal_extractsUsername() throws IOException {
         org.springframework.security.core.userdetails.User springUser =
                 new org.springframework.security.core.userdetails.User("custom_user", "pass", List.of());
         var auth = new UsernamePasswordAuthenticationToken(springUser, null, List.of());
@@ -211,7 +211,7 @@ class SecurityErrorWriterTest {
         ArgumentCaptor<AccessDeniedEvent> eventCaptor = ArgumentCaptor.forClass(AccessDeniedEvent.class);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
 
-        assertThat(eventCaptor.getValue().username()).isNull();
+        assertThat(eventCaptor.getValue().username()).isEqualTo("custom_user");
         assertThat(eventCaptor.getValue().userId()).isNull();
     }
 }

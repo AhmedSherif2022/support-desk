@@ -35,12 +35,17 @@ import java.util.stream.Collectors;
  * One pass per monitor run: take every handled error whose automatic ticket is still open and not in an incident,
  * split them by error code + platform, and for each group either
  * <ul>
- *   <li>join the group's OPEN incident, if there is one, with the errors that fall within the grouping window of its
- *       latest error (each joined error stretches that window further), or</li>
- *   <li>open a new incident when some window of {@code groupingWindow} holds at least {@code minAffectedCustomers}
- *       <em>different</em> customers; the errors in that window, and those chained within a window after it, join it.</li>
+ *   <li>join the group's OPEN incident, if there is one, with the errors within the grouping window of its latest
+ *       error (each later joined error stretches that window further; an earlier one never pulls it back), and</li>
+ *   <li>group every remaining burst: some window of {@code groupingWindow} with at least {@code minAffectedCustomers}
+ *       <em>different</em> customers, plus the errors within one window before it and those chained within a window
+ *       after it. The first burst opens the
+ *       incident when none is OPEN; a later burst joins the OPEN one, since there is one OPEN incident per group.</li>
  * </ul>
- * Every linked ticket becomes CRITICAL and its errors are marked GROUPED; a new incident is audited as INCIDENT_CREATED.
+ * Candidates are the errors handled in the last two windows, plus the errors that occurred within one window before the
+ * earliest of those (so a row the monitor handled late still meets its partners); old rows are not read on every run.
+ * Every linked ticket becomes CRITICAL and its errors are marked GROUPED; a new incident is audited as INCIDENT_CREATED,
+ * and tickets that later join an existing one as INCIDENT_TICKETS_LINKED.
  * <p>
  * Concurrency: the whole pass holds a PostgreSQL transaction-level advisory lock, so two monitor runs (on any number
  * of instances) never group at the same time. Underneath, the partial unique index on open incidents and the unique
@@ -81,7 +86,15 @@ public class IncidentGroupingService
         Duration window = settings.groupingWindow();
         Instant now = clock.instant();
 
-        Map<GroupKey, List<DetectedErrorEvent>> groups = eventRepository.findGroupingCandidates(CLOSED).stream()
+        // An error groups only with errors within one window of it. Two windows of handled rows cover the newest errors
+        // and the look-back of an open incident. A row the monitor handled late may belong with rows that occurred near
+        // it but were handled earlier, so also read every row that occurred within one window before the earliest one
+        // just handled.
+        Instant since = now.minus(window.multipliedBy(2));
+        Instant occurredFrom = eventRepository.findEarliestOccurredHandledSince(since)
+                .map(earliest -> earliest.minus(window)).orElse(since);
+        Map<GroupKey, List<DetectedErrorEvent>> groups = eventRepository.findGroupingCandidates(CLOSED, since, occurredFrom)
+                .stream()
                 .collect(Collectors.groupingBy(e -> new GroupKey(e.getErrorCode(), e.getPlatform()),
                         LinkedHashMap::new, Collectors.toList()));
 
@@ -95,23 +108,37 @@ public class IncidentGroupingService
 
     private int groupOne(GroupKey key, List<DetectedErrorEvent> events, int minCustomers, Duration window, Instant now)
     {
-        Optional<Incident> open = incidentRepository.findByErrorCodeAndPlatformAndStatus(
-                key.errorCode(), key.platform(), IncidentStatus.OPEN);
-        if (open.isPresent()) {
-            Instant lastError = open.get().getLastOccurredAt();
-            List<DetectedErrorEvent> joining = chain(events, lastError.minus(window), lastError, window);
-            return joining.isEmpty() ? 0 : link(open.get(), joining, now, false);
+        Incident incident = incidentRepository.findByErrorCodeAndPlatformAndStatus(
+                key.errorCode(), key.platform(), IncidentStatus.OPEN).orElse(null);
+        List<DetectedErrorEvent> remaining = new ArrayList<>(events);
+        int linked = 0;
+
+        if (incident != null) {
+            Instant lastError = incident.getLastOccurredAt();
+            List<DetectedErrorEvent> joining = chain(remaining, lastError.minus(window), lastError, window);
+            if (!joining.isEmpty()) {
+                linked += link(incident, joining, now, false);
+                remaining.removeAll(joining);
+            }
         }
 
-        Optional<Instant> start = densestWindowStart(events, window, minCustomers);
-        if (start.isEmpty()) {
-            return 0;                                                  // fewer customers than the threshold: tickets stay separate
+        // Every burst that reaches the threshold on its own is grouped, even one long after the open incident's last
+        // error: it opens the incident, or joins the OPEN one (one OPEN incident per error code and platform).
+        // Fewer customers than the threshold: those tickets stay separate.
+        Optional<Instant> start;
+        while ((start = densestWindowStart(remaining, window, minCustomers)).isPresent()) {
+            // Anchored at the burst like a join: errors up to one window before its densest window belong to it too.
+            List<DetectedErrorEvent> members = chain(remaining, start.get().minus(window), start.get(), window);
+            boolean created = incident == null;
+            if (created) {
+                DetectedErrorEvent first = members.get(0);
+                incident = incidentRepository.save(new Incident(key.errorCode(), key.platform(), first.getService(),
+                        first.getOccurredAt(), members.get(members.size() - 1).getOccurredAt()));
+            }
+            linked += link(incident, members, now, created);
+            remaining.removeAll(members);
         }
-        List<DetectedErrorEvent> members = chain(events, start.get(), null, window);
-        DetectedErrorEvent first = members.get(0);
-        Incident incident = incidentRepository.save(new Incident(key.errorCode(), key.platform(), first.getService(),
-                first.getOccurredAt(), members.get(members.size() - 1).getOccurredAt()));
-        return link(incident, members, now, true);
+        return linked;
     }
 
 
@@ -140,8 +167,9 @@ public class IncidentGroupingService
 
 
     /**
-     * Errors at or after {@code from}, walked in time order, while each is within {@code window} of the previous one
-     * (or of {@code anchor}, the incident's latest error, for the first). A gap longer than the window ends the chain.
+     * Errors at or after {@code from}, walked in time order, while each is within {@code window} of the latest error
+     * seen so far: {@code anchor} (the open incident's latest error) or a later one already in the chain. An error
+     * older than that latest one never moves it back. A gap longer than the window ends the chain.
      */
     private static List<DetectedErrorEvent> chain(List<DetectedErrorEvent> sorted, Instant from, Instant anchor, Duration window)
     {
@@ -156,7 +184,9 @@ public class IncidentGroupingService
                 break;
             }
             out.add(event);
-            last = at;
+            if (last == null || at.isAfter(last)) {
+                last = at;
+            }
         }
         return out;
     }
@@ -178,16 +208,18 @@ public class IncidentGroupingService
         int affected = incidentTicketRepository.countDistinctCustomers(incident.getId());
         incident.recordLinkedErrors(events.get(0).getOccurredAt(), events.get(events.size() - 1).getOccurredAt(), affected);
 
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("incidentId", incident.getId());
+        after.put("errorCode", incident.getErrorCode());
+        after.put("platform", incident.getPlatform().name());
+        after.put("service", incident.getService());
+        after.put("affectedCustomerCount", affected);
+        after.put("ticketNumbers", tickets.values().stream().map(Ticket::getTicketNumber).toList());
+        // No logged-in user in the monitor job: a null user records it as a system action. A later wave that joins
+        // the incident is audited too, so the trail shows the outage came back.
+        auditService.record(created ? AuditAction.INCIDENT_CREATED : AuditAction.INCIDENT_TICKETS_LINKED, null, ENTITY,
+                String.valueOf(incident.getId()), null, after);
         if (created) {
-            Map<String, Object> after = new LinkedHashMap<>();
-            after.put("incidentId", incident.getId());
-            after.put("errorCode", incident.getErrorCode());
-            after.put("platform", incident.getPlatform().name());
-            after.put("service", incident.getService());
-            after.put("affectedCustomerCount", affected);
-            after.put("ticketNumbers", tickets.values().stream().map(Ticket::getTicketNumber).toList());
-            // No logged-in user in the monitor job: a null user records it as a system action.
-            auditService.record(AuditAction.INCIDENT_CREATED, null, ENTITY, String.valueOf(incident.getId()), null, after);
             log.info("Incident {} opened for {} on {}: {} customers, {} tickets", incident.getId(),
                     incident.getErrorCode(), incident.getPlatform(), affected, tickets.size());
         }

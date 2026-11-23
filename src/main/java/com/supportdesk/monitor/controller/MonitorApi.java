@@ -19,7 +19,9 @@ public interface MonitorApi
 {
     @PostMapping("/run")
     @Operation(summary = "Run the monitor job now",
-            description = "Processes waiting error rows right away and returns the run's numbers.")
+            description = "Processes waiting error rows right away, then groups the new automatic tickets into "
+                    + "incidents (see the Incidents tag), and returns the run's numbers: grouped counts the tickets "
+                    + "linked to an incident in this run.")
     @ApiResponse(responseCode = "200", description = "The finished run")
     @ApiResponse(responseCode = "401", description = "UNAUTHORIZED: no token, or it expired",
             content = @Content(schema = @Schema(implementation = ApiError.class)))

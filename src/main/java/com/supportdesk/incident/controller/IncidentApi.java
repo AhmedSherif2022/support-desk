@@ -25,7 +25,15 @@ import java.util.List;
  */
 @RequestMapping("/api/incidents")
 @Tag(name = "Incidents", description = "Mass failures grouped into one problem: the same error code on the same "
-        + "platform hit by many different customers within the grouping window. Agents read; the job writes.")
+        + "platform hit by at least minAffectedCustomers different customers within the grouping window (defaults 5 "
+        + "and 15 minutes, GET /api/admin/incident-settings). The monitor job groups after each run: a burst that "
+        + "reaches the threshold opens an incident, linked tickets become CRITICAL, and an error within one window of "
+        + "the OPEN incident's last error joins it. Only one incident per error code and platform is OPEN at a time, "
+        + "so a later burst of the same error joins that OPEN incident instead of opening a second. An error the "
+        + "monitor handles late still joins the errors that occurred near it. A new incident is audited as "
+        + "INCIDENT_CREATED and every later set of tickets that joins it as INCIDENT_TICKETS_LINKED (entity INCIDENT, "
+        + "entityId the incident id; a Guide Admin or Reviewer reads them at GET /api/audit/logs). Agents read; the "
+        + "job writes.")
 public interface IncidentApi
 {
     @GetMapping

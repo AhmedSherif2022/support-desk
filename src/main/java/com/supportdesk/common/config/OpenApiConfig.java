@@ -36,6 +36,9 @@ import org.springframework.context.annotation.Configuration;
                         **Guide Admin flow** (role GUIDE_ADMIN)
                         `GET /api/admin/guide-feedback?status=OPEN` lists the steps agents flagged as wrong or unclear (its `totalItems` is the open count); `POST /api/admin/guide-feedback/{id}/done` marks one done.
 
+                        **Automatic tickets and incidents** (E6)
+                        The monitor job turns error rows into tickets every minute and groups mass failures into incidents. Agents read `GET /api/incidents` (OPEN by default), `GET /api/incidents/{id}` and `GET /api/incidents/{id}/tickets`. A Guide Admin runs the job at once with `POST /api/admin/monitor/run`, reads its runs at `GET /api/admin/monitor/runs`, and sets the thresholds at `GET`/`PUT /api/admin/incident-settings`. Each incident's trail (`INCIDENT_CREATED`, then `INCIDENT_TICKETS_LINKED` for every later wave) is at `GET /api/audit/logs?entity=INCIDENT&entityId={id}`.
+
                         **Errors** always come back as `{code, message, fieldErrors, path, timestamp}`; login lockouts and limits add `retryAt`, `retryAfterSeconds` and `attemptsLeft` when they apply.
                         `401 UNAUTHORIZED` means no or expired token; `403 FORBIDDEN` means your role may not open that area
                         (every 403 is written to the audit log).

@@ -86,6 +86,8 @@ Other changes:
 | Tickets (E3) | `GET /api/tickets/categories` · `POST /api/tickets/precheck` · `POST /api/tickets` · `GET /api/tickets` · `GET /api/tickets/queue` · `GET /api/tickets/{number}` · `POST /api/tickets/{number}/steps` · `GET` and `POST /api/tickets/{number}/contacts` · `GET /api/tickets/{number}/timeline` · `GET /api/tickets/{number}/audit` |
 | Ticket review | `GET /api/review/tickets` · `GET /api/review/tickets/{number}` · `POST /api/review/tickets/{number}/steps` (Agent, Reviewer) |
 | Guide feedback (E4, E8) | `GET /api/admin/guide-feedback` · `POST /api/admin/guide-feedback/{id}/done` (Guide Admin) |
+| Incidents (E6) | `GET /api/incidents` · `GET /api/incidents/{id}` · `GET /api/incidents/{id}/tickets` (Agent) |
+| Monitor and thresholds (E6) | `POST /api/admin/monitor/run` · `GET /api/admin/monitor/runs` · `GET` and `PUT /api/admin/incident-settings` (Guide Admin) |
 | Guides (E4) | `GET /api/guides/recommended` · `POST /api/guide-runs` · `GET /api/guide-runs?ticket={number}` · `GET /api/guide-runs/{id}` · `POST /api/guide-runs/{id}/answers` · `DELETE /api/guide-runs/{id}/answers/{position}` · `POST /api/guide-runs/{id}/complete` · `POST /api/guide-runs/{id}/flags` |
 
 ## E1 Access, roles and audit

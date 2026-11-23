@@ -61,7 +61,8 @@ class IncidentGroupingServiceTest
                 auditService, jdbc, Clock.fixed(NOW, ZoneOffset.UTC));
         when(settings.minAffectedCustomers()).thenReturn(5);
         when(settings.groupingWindow()).thenReturn(Duration.ofMinutes(15));
-        when(eventRepository.findGroupingCandidates(anyCollection())).thenReturn(candidates);
+        when(eventRepository.findGroupingCandidates(anyCollection(), any(), any())).thenReturn(candidates);
+        when(eventRepository.findEarliestOccurredHandledSince(any())).thenReturn(Optional.empty());
         when(incidentRepository.findByErrorCodeAndPlatformAndStatus(any(), any(), any())).thenReturn(Optional.empty());
         when(incidentRepository.save(any(Incident.class))).thenAnswer(i -> i.getArgument(0));
         when(incidentTicketRepository.countDistinctCustomers(any())).thenReturn(5);
@@ -268,7 +269,9 @@ class IncidentGroupingServiceTest
         assertThat(service.groupRecentFailures()).isEqualTo(2);
 
         verify(incidentRepository, never()).save(any());
-        verify(auditService, never()).record(any(), any(), any(), any(), any(), any());
+        verify(auditService, never()).record(eq(AuditAction.INCIDENT_CREATED), any(), any(), any(), any(), any());
+        verify(auditService, times(1)).record(eq(AuditAction.INCIDENT_TICKETS_LINKED), isNull(),
+                eq(IncidentGroupingService.ENTITY), any(), isNull(), any());
         verify(a).raisePriorityToCritical();
         verify(b).raisePriorityToCritical();
         ArgumentCaptor<IncidentTicket> links = ArgumentCaptor.forClass(IncidentTicket.class);
@@ -291,6 +294,106 @@ class IncidentGroupingServiceTest
         verify(late, never()).raisePriorityToCritical();
         verify(incidentTicketRepository, never()).save(any());
         verify(incidentRepository, never()).save(any());                // a second OPEN incident is never opened
+    }
+
+    @Test
+    void anOlderErrorInTheLookBackDoesNotPullTheAnchorBackAndDropANewerOne()
+    {
+        // The review case: 15-minute window, incident's last error 20 minutes ago.
+        Incident open = new Incident("ERR_AUTH_503", Platform.MOBILE, "AUTH", NOW.minusSeconds(40 * 60), NOW.minusSeconds(20 * 60));
+        when(incidentRepository.findByErrorCodeAndPlatformAndStatus("ERR_AUTH_503", Platform.MOBILE, IncidentStatus.OPEN))
+                .thenReturn(Optional.of(open));
+        Ticket older = event(6, "ERR_AUTH_503", Platform.MOBILE, 30);  // in the look-back: 10 min before the last error
+        Ticket newer = event(7, "ERR_AUTH_503", Platform.MOBILE, 8);   // 12 min after the last error: inside the window
+
+        assertThat(service.groupRecentFailures()).isEqualTo(2);
+
+        verify(older).raisePriorityToCritical();
+        verify(newer).raisePriorityToCritical();
+        assertThat(open.getLastOccurredAt()).isEqualTo(NOW.minusSeconds(8 * 60));
+        assertThat(open.getFirstOccurredAt()).isEqualTo(NOW.minusSeconds(40 * 60));
+    }
+
+    @Test
+    void aLaterBurstOfFiveCustomersJoinsTheOpenIncidentInsteadOfStayingSeparate()
+    {
+        Incident open = new Incident("ERR_AUTH_503", Platform.MOBILE, "AUTH", NOW.minusSeconds(90 * 60), NOW.minusSeconds(60 * 60));
+        when(incidentRepository.findByErrorCodeAndPlatformAndStatus("ERR_AUTH_503", Platform.MOBILE, IncidentStatus.OPEN))
+                .thenReturn(Optional.of(open));
+        when(incidentTicketRepository.countDistinctCustomers(any())).thenReturn(10);
+        List<Ticket> wave = new ArrayList<>();
+        for (int c = 11; c <= 15; c++) {
+            wave.add(event(c, "ERR_AUTH_503", Platform.MOBILE, 16 - c));    // 5 .. 1 min ago: 55 min after the last error
+        }
+
+        assertThat(service.groupRecentFailures()).isEqualTo(5);
+
+        verify(incidentRepository, never()).save(any());                // still one OPEN incident per code and platform
+        verify(auditService, never()).record(eq(AuditAction.INCIDENT_CREATED), any(), any(), any(), any(), any());
+        verify(auditService, times(1)).record(eq(AuditAction.INCIDENT_TICKETS_LINKED), any(), any(), any(), any(), any());
+        wave.forEach(t -> verify(t).raisePriorityToCritical());
+        ArgumentCaptor<IncidentTicket> links = ArgumentCaptor.forClass(IncidentTicket.class);
+        verify(incidentTicketRepository, times(5)).save(links.capture());
+        assertThat(links.getAllValues()).allMatch(l -> l.getIncident() == open);
+        assertThat(open.getLastOccurredAt()).isEqualTo(NOW.minusSeconds(60));
+        assertThat(open.getAffectedCustomerCount()).isEqualTo(10);
+        assertThat(candidates).allMatch(e -> e.getOutcome() == EventOutcome.GROUPED);
+    }
+
+    @Test
+    void twoBurstsInOneRunMakeOneIncidentNotTwo()
+    {
+        for (int c = 1; c <= 5; c++) {
+            event(c, "ERR_AUTH_503", Platform.MOBILE, 30 - c);              // 29 .. 25 min ago
+        }
+        for (int c = 11; c <= 15; c++) {
+            event(c, "ERR_AUTH_503", Platform.MOBILE, 16 - c);              // 5 .. 1 min ago: 20 min later
+        }
+
+        assertThat(service.groupRecentFailures()).isEqualTo(10);
+
+        verify(incidentRepository, times(1)).save(any(Incident.class));
+        verify(auditService, times(1)).record(eq(AuditAction.INCIDENT_CREATED), any(), any(), any(), any(), any());
+        verify(auditService, times(1)).record(eq(AuditAction.INCIDENT_TICKETS_LINKED), any(), any(), any(), any(), any());
+        verify(incidentTicketRepository, times(10)).save(any(IncidentTicket.class));
+    }
+
+    @Test
+    void anErrorJustBeforeTheBusiestWindowJoinsTheNewIncident()
+    {
+        Ticket early = event(9, "ERR_AUTH_503", Platform.MOBILE, 30);  // 12 min before the burst: within one window
+        for (int c = 1; c <= 6; c++) {
+            event(c, "ERR_AUTH_503", Platform.MOBILE, 19 - c);              // 18 .. 13 min ago: the busiest window
+        }
+
+        assertThat(service.groupRecentFailures()).isEqualTo(7);
+
+        verify(early).raisePriorityToCritical();
+        ArgumentCaptor<Incident> incident = ArgumentCaptor.forClass(Incident.class);
+        verify(incidentRepository, times(1)).save(incident.capture());
+        assertThat(incident.getValue().getFirstOccurredAt()).isEqualTo(NOW.minusSeconds(30 * 60));
+        assertThat(candidates).allMatch(e -> e.getOutcome() == EventOutcome.GROUPED);
+    }
+
+    @Test
+    void onlyErrorsHandledInTheLastTwoWindowsAreRead()
+    {
+        service.groupRecentFailures();
+
+        Instant since = NOW.minusSeconds(30 * 60);
+        verify(eventRepository).findGroupingCandidates(anyCollection(), eq(since), eq(since));   // nothing handled late
+    }
+
+    @Test
+    void aRowHandledLateAlsoReadsTheRowsThatOccurredNearIt()
+    {
+        // The earliest row handled in the last two windows occurred an hour ago: read from one window before that.
+        when(eventRepository.findEarliestOccurredHandledSince(any())).thenReturn(Optional.of(NOW.minusSeconds(60 * 60)));
+
+        service.groupRecentFailures();
+
+        verify(eventRepository).findGroupingCandidates(anyCollection(), eq(NOW.minusSeconds(30 * 60)),
+                eq(NOW.minusSeconds(75 * 60)));
     }
 
     @Test

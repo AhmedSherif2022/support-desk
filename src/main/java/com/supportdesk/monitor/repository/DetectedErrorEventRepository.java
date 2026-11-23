@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface DetectedErrorEventRepository extends JpaRepository<DetectedErrorEvent, Long>
 {
@@ -40,8 +41,9 @@ public interface DetectedErrorEventRepository extends JpaRepository<DetectedErro
 
 
     /**
-     * E6-S3: errors that may still form or join an incident — handled rows (CREATED or DUPLICATE) whose automatic
-     * ticket is still open and not linked to any incident yet. Ordered so one pass can walk them group by group.
+     * E6-S3: errors that may still form or join an incident — rows (CREATED or DUPLICATE) handled since {@code since}
+     * or that occurred since {@code occurredFrom}, whose automatic ticket is still open and not linked to any incident
+     * yet. Ordered so one pass can walk them group by group. Both bounds keep older rows from being read on every run.
      */
     @Query("""
             SELECT e FROM DetectedErrorEvent e
@@ -51,7 +53,14 @@ public interface DetectedErrorEventRepository extends JpaRepository<DetectedErro
               AND t.origin = com.supportdesk.ticket.enums.TicketOrigin.AUTO_CREATED
               AND t.status NOT IN :closedStatuses
               AND NOT EXISTS (SELECT 1 FROM IncidentTicket it WHERE it.ticket = t)
+              AND (e.processedAt >= :since OR e.occurredAt >= :occurredFrom)
             ORDER BY e.errorCode, e.platform, e.occurredAt, e.id
             """)
-    List<DetectedErrorEvent> findGroupingCandidates(@Param("closedStatuses") Collection<TicketStatus> closedStatuses);
+    List<DetectedErrorEvent> findGroupingCandidates(@Param("closedStatuses") Collection<TicketStatus> closedStatuses,
+                                                    @Param("since") Instant since,
+                                                    @Param("occurredFrom") Instant occurredFrom);
+
+    /** When the earliest error handled since {@code since} occurred; empty when the monitor handled none. */
+    @Query("SELECT MIN(e.occurredAt) FROM DetectedErrorEvent e WHERE e.processedAt >= :since")
+    Optional<Instant> findEarliestOccurredHandledSince(@Param("since") Instant since);
 }

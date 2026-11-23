@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
         + "- ERROR_EVENT_JOINED: a detected error joined a customer's open ticket instead of making a new one\n"
         + "- INCIDENT_CREATED: enough different customers hit the same error on the same platform, so their tickets "
         + "were grouped into one incident and set to CRITICAL\n"
+        + "- INCIDENT_TICKETS_LINKED: later tickets of the same error and platform joined an existing incident\n"
         + "- SETTING_CHANGED: the Guide Admin changed a runtime setting (the record holds the old and new value)")
 public enum AuditAction {
     ACCESS_DENIED,
@@ -42,6 +43,7 @@ public enum AuditAction {
     MONITOR_JOB_RUN,
     ERROR_EVENT_JOINED,
     INCIDENT_CREATED,
+    INCIDENT_TICKETS_LINKED,
     SETTING_CHANGED
 }
 

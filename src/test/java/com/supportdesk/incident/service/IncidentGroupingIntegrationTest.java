@@ -144,6 +144,53 @@ class IncidentGroupingIntegrationTest
     }
 
     @Test
+    void aSecondWaveAnHourLaterJoinsTheStillOpenIncident()
+    {
+        for (int i = 1; i <= 5; i++) {
+            error(newCustomer(), "MOBILE", 10 - i);
+        }
+        monitorJob.run(JobTrigger.MANUAL);
+        Incident incident = openIncident();
+        // The first wave ended an hour ago: nothing new chains to it by time.
+        jdbc.update("UPDATE incident SET first_occurred_at = now() - interval '70 minutes', "
+                + "last_occurred_at = now() - interval '60 minutes' WHERE id = ?", incident.getId());
+
+        for (int i = 1; i <= 5; i++) {
+            error(newCustomer(), "MOBILE", 6 - i);                          // a new wave, 5 .. 1 minutes ago
+        }
+        var run = monitorJob.run(JobTrigger.MANUAL);
+
+        assertThat(run.getGrouped()).isEqualTo(5);
+        assertThat(incidentCount()).isEqualTo(1);
+        Incident same = openIncident();
+        assertThat(same.getId()).isEqualTo(incident.getId());
+        assertThat(incidentTicketRepository.countByIncidentId(same.getId())).isEqualTo(10);
+        assertThat(same.getAffectedCustomerCount()).isEqualTo(10);
+        assertThat(auditLogRepository.findByEntityAndEntityIdOrderByCreatedAtDescIdDesc(
+                IncidentGroupingService.ENTITY, String.valueOf(same.getId())))
+                .extracting(AuditLog::getAction)
+                .containsExactly(AuditAction.INCIDENT_TICKETS_LINKED, AuditAction.INCIDENT_CREATED);   // newest first
+    }
+
+    @Test
+    void aRowTheMonitorHandlesLateStillJoinsTheRowsHandledEarlier()
+    {
+        for (int i = 1; i <= 4; i++) {
+            error(newCustomer(), "MOBILE", 46 - i);                         // 45 .. 42 minutes ago
+        }
+        assertThat(monitorJob.run(JobTrigger.MANUAL).getGrouped()).isZero();  // 4 customers: below the threshold
+        // Those four were handled long ago, so they are outside the two-window bound on when rows were handled.
+        jdbc.update("UPDATE detected_error_event SET processed_at = now() - interval '2 hours' "
+                + "WHERE error_code = ? AND processed_at IS NOT NULL", code);
+
+        error(newCustomer(), "MOBILE", 41);                              // occurred 41 minutes ago, handled only now
+        var run = monitorJob.run(JobTrigger.MANUAL);
+
+        assertThat(run.getGrouped()).isEqualTo(5);
+        assertThat(incidentCount()).isEqualTo(1);
+    }
+
+    @Test
     void thresholdsComeFromTheDatabaseAndSurviveARestart()
     {
         settingsService.update(new UpdateIncidentSettingsRequest(3, 30));

@@ -134,6 +134,17 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!-- Tests share one database and Spring keeps cached test contexts alive: no scheduled job
+                 (monitor, SLA) may write rows behind a test's back. Tests call the jobs directly. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <supportdesk.tickets.sla.scheduling-enabled>false</supportdesk.tickets.sla.scheduling-enabled>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
             <!-- Tells the Java compiler to run Lombok (for main code and tests) -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
