@@ -189,6 +189,19 @@ public class Ticket extends BaseEntity {
         this.errorCodeFromCategory = true;
     }
 
+    /**
+     * E6-S3: a ticket that joins an incident becomes CRITICAL. Only the priority changes: status, SLA clock and the
+     * rest of the lifecycle stay as they are (escalation is E5, postponed).
+     */
+    public boolean raisePriorityToCritical()
+    {
+        if (this.priority == TicketPriority.CRITICAL) {
+            return false;
+        }
+        this.priority = TicketPriority.CRITICAL;
+        return true;
+    }
+
     /** The error the customer hit, given on the call or found in their logs. Null when only the category default is known. */
     public String customerErrorCode()
     {

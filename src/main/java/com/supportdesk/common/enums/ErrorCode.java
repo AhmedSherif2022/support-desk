@@ -53,7 +53,11 @@ public enum ErrorCode
     GUIDE_RUN_STILL_ACTIVE(HttpStatus.CONFLICT, "Finish the guide before flagging one of its steps."),
     GUIDE_STEP_ALREADY_FLAGGED(HttpStatus.CONFLICT, "You already flagged this step on this run."),
     GUIDE_FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "This feedback does not exist."),
-    GUIDE_STEP_NOT_TAKEN(HttpStatus.UNPROCESSABLE_ENTITY, "Only a step taken during this run, or where an abandoned run stopped, can be flagged.");
+    GUIDE_STEP_NOT_TAKEN(HttpStatus.UNPROCESSABLE_ENTITY, "Only a step taken during this run, or where an abandoned run stopped, can be flagged."),
+
+    // incidents
+    INCIDENT_NOT_FOUND(HttpStatus.NOT_FOUND, "This incident does not exist."),
+    INVALID_SETTING_VALUE(HttpStatus.UNPROCESSABLE_ENTITY, "This setting value is not allowed.");
 
     private final HttpStatus status;
     private final String message;
