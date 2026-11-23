@@ -46,7 +46,8 @@ public interface CustomerApi
 {
     @GetMapping("/search")
     @Operation(summary = "Search customers",
-            description = "One box for CIF, national ID, mobile (01…, 20… or +20…) or ticket number (#2001). "
+            description = "One box for CIF (the number alone is enough: 100245 finds CIF-100245), national ID, "
+                    + "mobile (01…, 20… or +20…) or ticket number (#2001). "
                     + "National ID and mobile are masked; name, segment and enrollment status are not. "
                     + "Audited as CUSTOMER_SEARCHED without the search text. "
                     + "More than 30 searches in 10 minutes answer 429.")
@@ -57,7 +58,8 @@ public interface CustomerApi
     @ApiResponse(responseCode = "429", description = "TOO_MANY_SEARCHES: more than 30 searches in 10 minutes",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     CustomerSearchResponse search(
-            @Parameter(description = "CIF, national ID, mobile or ticket number.", example = "CIF-100245")
+            @Parameter(description = "CIF number (with or without \"CIF-\"), national ID, mobile or ticket number.",
+                    example = "100245")
             @RequestParam String q);
 
     @GetMapping("/{cif}")

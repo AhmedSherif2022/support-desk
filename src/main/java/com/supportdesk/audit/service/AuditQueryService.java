@@ -3,6 +3,7 @@ package com.supportdesk.audit.service;
 import com.supportdesk.audit.enums.AuditAction;
 import com.supportdesk.audit.entity.AuditLog;
 import com.supportdesk.audit.repository.AuditLogRepository;
+import com.supportdesk.customer.service.CifFormat;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,10 +27,16 @@ public class AuditQueryService
         Specification<AuditLog> spec = Specification.<AuditLog>where(equal("username", username))
                 .and(equal("action", action))
                 .and(equal("entity", entity))
-                .and(equal("entityId", entityId))
+                .and(equal("entityId", customerId(entity, entityId)))
                 .and(from == null ? null : (root, query, cb) -> cb.greaterThanOrEqualTo(root.get("createdAt"), from))
                 .and(to == null ? null : (root, query, cb) -> cb.lessThan(root.get("createdAt"), to));
         return auditLogRepository.findAll(spec, pageable);
+    }
+
+    /** Customer audit rows are keyed by CIF, so entity=CUSTOMER&entityId=100245 finds "CIF-100245". */
+    static String customerId(String entity, String entityId)
+    {
+        return entityId != null && "CUSTOMER".equalsIgnoreCase(entity) ? CifFormat.normalize(entityId) : entityId;
     }
 
     // A null filter adds no condition.

@@ -1,10 +1,12 @@
 package com.supportdesk.ticket.repository;
 import com.supportdesk.ticket.entity.Ticket;
+import com.supportdesk.ticket.enums.TicketPriority;
 import com.supportdesk.ticket.enums.TicketStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -44,4 +46,18 @@ public interface TicketRepository extends JpaRepository<Ticket, Long>, JpaSpecif
     // E6-S2: open ticket (any origin) for the same customer + error code, opened since the duplicate window began.
     Optional<Ticket> findFirstByCustomerIdAndErrorCodeAndStatusNotInAndCreatedAtAfterOrderByCreatedAtDesc(
             Long customerId, String errorCode, Collection<TicketStatus> closedStatuses, Instant since);
+
+
+    /** Priority suggestion: how agents prioritised tickets in one sub-category since a date (manual tickets only). */
+    @Query("SELECT t.priority AS priority, COUNT(t) AS tickets FROM Ticket t "
+            + "WHERE t.category.id = :categoryId AND t.origin = com.supportdesk.ticket.enums.TicketOrigin.MANUAL "
+            + "AND t.createdAt >= :since GROUP BY t.priority")
+    List<PriorityCount> countManualPrioritiesSince(@Param("categoryId") Long categoryId, @Param("since") Instant since);
+
+    interface PriorityCount
+    {
+        TicketPriority getPriority();
+
+        long getTickets();
+    }
 }

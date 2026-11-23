@@ -43,7 +43,7 @@ public class CustomerSearchService
         String q = query == null ? "" : query.trim();
 
         Map<Long, CustomerSearchResult> found = new LinkedHashMap<>();   // by customer id: one row per customer
-        customerRepository.findByCifIgnoreCase(q).ifPresent(c -> add(found, c, "CIF"));
+        customerRepository.findByCifIgnoreCase(CifFormat.normalize(q)).ifPresent(c -> add(found, c, "CIF"));   // with or without "CIF-"
         customerRepository.findByNationalId(q).ifPresent(c -> add(found, c, "NATIONAL_ID"));
         mobile(q).ifPresent(m -> customerRepository.findByMobile(m).forEach(c -> add(found, c, "MOBILE")));
         ticketNumber(q).flatMap(ticketRepository::findByTicketNumber)

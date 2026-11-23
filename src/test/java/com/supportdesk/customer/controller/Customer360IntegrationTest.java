@@ -191,10 +191,13 @@ class Customer360IntegrationTest
     void noFailuresSuggestsDeviceOrNetwork() throws Exception
     {
         verify(AHMED, "DATE_OF_BIRTH", "MOBILE_ON_FILE");
+        // Every active top-level category is a service; the Guide Admin can add more (POST /api/admin/categories).
+        Integer services = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ticket_categories WHERE parent_id IS NULL AND active", Integer.class);
 
         open(AHMED, "/diagnosis").andExpect(jsonPath("$.hasFailures").value(false))
                 .andExpect(jsonPath("$.summary").value("No failures in the last 6 hours. Check the customer's device or network."))
-                .andExpect(jsonPath("$.servicesWithoutFailures.length()").value(5))
+                .andExpect(jsonPath("$.servicesWithoutFailures.length()").value(services))
                 .andExpect(jsonPath("$.suggestedGuide").doesNotExist());
     }
 
