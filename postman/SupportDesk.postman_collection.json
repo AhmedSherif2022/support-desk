@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Support Desk API",
-    "description": "Local Support Desk backend. Start Postgres (`docker compose up -d`) and the app, then run the whole collection with the Collection Runner: each request saves the tokens and numbers the next one needs. Run it against a local app only: it creates tickets and locks `nour` for 15 minutes.\n\nSeeded users (local profile, password `Password123!`): `mona` AGENT, `youssef` GUIDE_ADMIN, `nour` REVIEWER.\n\nFolders:\n1. Auth flow: log in, refresh, log out.\n2. Login errors: wrong password, bad bodies, and the lockout with its countdown.\n3. Permissions: each role's areas, and the audited 403.\n4. API docs: the OpenAPI spec.\n5. Home queue (E3-S4): the team's open tickets and the chips.\n6. Customer 360 (E2): search, verification, masking, diagnosis, activity.\n7. Ticket workspace (E3): categories, create, ticket steps (`POST /api/tickets/{number}/steps`), the Reviewer's review endpoints, the tabs, and the ticket list with its sort fields.\n8. Guided troubleshooting (E4): recommend, run and finish a guide for each outcome, and `activeGuideRunId`.\n\nFull reference with every field and error code: Swagger UI at `/swagger-ui.html` on the app, locally (http://localhost:8080/swagger-ui.html) and in production.",
+    "description": "Local Support Desk backend. Start Postgres (`docker compose up -d`) and the app, then run the whole collection with the Collection Runner: each request saves the tokens and numbers the next one needs. Run it against a local app only: it creates tickets and locks `nour` for 15 minutes.\n\nSeeded users (local profile, password `Password123!`): `mona` AGENT, `youssef` GUIDE_ADMIN, `nour` REVIEWER.\n\nFolders:\n1. Auth flow: log in, refresh, log out.\n2. Login errors: wrong password, bad bodies, and the lockout with its countdown.\n3. Permissions: each role's areas, and the audited 403.\n4. API docs: the OpenAPI spec.\n5. Home queue (E3-S4): the team's open tickets and the chips.\n6. Customer 360 (E2): search, verification, masking, diagnosis, activity.\n7. Ticket workspace (E3): categories, create, ticket steps (`POST /api/tickets/{number}/steps`), the Reviewer's review endpoints, the tabs, and the ticket list with its sort fields.\n8. Guided troubleshooting (E4): recommend, run and finish a guide for each outcome, and `activeGuideRunId`.\n9. Automatic tickets and incidents (E6): the monitor job, incidents, and grouping thresholds.\n10. Service health: the bank's services on the agent home, and the Guide Admin's degraded thresholds.\n\nFull reference with every field and error code: Swagger UI at `/swagger-ui.html` on the app, locally (http://localhost:8080/swagger-ui.html) and in production.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -37,7 +37,9 @@
     { "key": "monitorRunId", "value": "" },
     { "key": "incidentId", "value": "" },
     { "key": "incidentMinCustomers", "value": "" },
-    { "key": "incidentWindowMinutes", "value": "" }
+    { "key": "incidentWindowMinutes", "value": "" },
+    { "key": "healthMinCustomers", "value": "" },
+    { "key": "healthWindowMinutes", "value": "" }
   ],
   "item": [
     {
@@ -412,7 +414,7 @@
             "pm.test('200 OK', () => pm.response.to.have.status(200));",
             "const paths = pm.response.json().paths;",
             "pm.test('Documents auth, customer, ticket, and queue endpoints', () => {",
-            "  pm.expect(paths).to.include.all.keys('/api/auth/login', '/api/customers/{cif}', '/api/tickets', '/api/tickets/queue', '/api/tickets/{number}', '/api/tickets/{number}/steps', '/api/review/tickets');",
+            "  pm.expect(paths).to.include.all.keys('/api/auth/login', '/api/customers/{cif}', '/api/tickets', '/api/tickets/queue', '/api/tickets/{number}', '/api/tickets/{number}/steps', '/api/review/tickets', '/api/service-health', '/api/admin/service-health-settings');",
             "});"
           ] } }],
           "request": {
@@ -3011,6 +3013,221 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"minAffectedCustomers\": 5,\n  \"groupingWindowMinutes\": 15\n}"
+            },
+            "description": "Guide Admin only."
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Service health",
+      "description": "Runs after folder 9, as mona (AGENT) unless a request says otherwise. The bank's services on the home screen: AUTH, PAYMENTS, CARDS and TRANSFERS, each on MOBILE and WEB. Not /actuator/health. The seeded ERR_AUTH_503 outage makes AUTH on MOBILE DOWN; TRX_DEBIT_NO_CREDIT is one critical ticket, so TRANSFERS on MOBILE stays operational and lists it under notices.",
+      "item": [
+        {
+          "name": "Home: service health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Eight fixed rows', () => {",
+                  "    pm.expect(body.services).to.have.lengthOf(8);",
+                  "    pm.expect(body).to.include.all.keys('dataStale', 'evaluatedAt', 'monitorLastActivityAt', 'windowMinutes', 'minCustomers', 'services');",
+                  "    const names = body.services.map(row => row.service + ' ' + row.platform);",
+                  "    ['AUTH', 'PAYMENTS', 'CARDS', 'TRANSFERS'].forEach(service => {",
+                  "        ['MOBILE', 'WEB'].forEach(platform => pm.expect(names).to.include(service + ' ' + platform));",
+                  "    });",
+                  "});",
+                  "const auth = body.services.find(row => row.service === 'AUTH' && row.platform === 'MOBILE');",
+                  "pm.test('The seeded auth outage is DOWN', () => {",
+                  "    pm.expect(auth.status).to.eql('DOWN');",
+                  "    pm.expect(auth.openIncidentIds.length).to.be.at.least(1);",
+                  "});",
+                  "const transfers = body.services.find(row => row.service === 'TRANSFERS' && row.platform === 'MOBILE');",
+                  "pm.test('One critical ticket is a notice, not DOWN', () => {",
+                  "    pm.expect(transfers.status).to.not.eql('DOWN');",
+                  "    pm.expect(transfers.notices.some(n => n.critical === true)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/service-health",
+            "description": "Agent only. Worst status first. A quiet row is UNKNOWN, and dataStale is true, when the monitor job has not run for 5 minutes."
+          }
+        },
+        {
+          "name": "Admin cannot read service health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{adminAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/service-health",
+            "description": "The home panel is the agent's."
+          }
+        },
+        {
+          "name": "Agent cannot read the health thresholds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/service-health-settings",
+            "description": "Guide Admin only. Separate from /api/admin/incident-settings."
+          }
+        },
+        {
+          "name": "Admin reads the degraded thresholds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const s = pm.response.json();",
+                  "pm.test('Whole numbers of at least 1', () => {",
+                  "    pm.expect(s.minCustomers).to.be.at.least(1);",
+                  "    pm.expect(s.windowMinutes).to.be.at.least(1);",
+                  "});",
+                  "pm.collectionVariables.set('healthMinCustomers', s.minCustomers);",
+                  "pm.collectionVariables.set('healthWindowMinutes', s.windowMinutes);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{adminAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/service-health-settings",
+            "description": "Defaults: 5 distinct customers, 15 minutes. This does not change incident grouping."
+          }
+        },
+        {
+          "name": "Admin sends a zero threshold",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('The field is named', () => {",
+                  "    pm.expect(pm.response.json().code).to.eql('VALIDATION_FAILED');",
+                  "    pm.expect(pm.response.json().fieldErrors).to.have.property('minCustomers');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{adminAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/admin/service-health-settings",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minCustomers\": 0,\n  \"windowMinutes\": 15\n}"
+            },
+            "description": "Both values must be at least 1."
+          }
+        },
+        {
+          "name": "Admin saves the same thresholds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Unchanged', () => pm.expect(pm.response.json().minCustomers).to.eql(Number(pm.collectionVariables.get('healthMinCustomers'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{adminAccessToken}}", "type": "string" }
+              ]
+            },
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/admin/service-health-settings",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minCustomers\": {{healthMinCustomers}},\n  \"windowMinutes\": {{healthWindowMinutes}}\n}"
+            },
+            "description": "Re-sends the values in force, so nothing changes. A real change is audited SETTING_CHANGED."
+          }
+        },
+        {
+          "name": "Agent cannot change the health thresholds",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/api/admin/service-health-settings",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minCustomers\": 5,\n  \"windowMinutes\": 15\n}"
             },
             "description": "Guide Admin only."
           }
