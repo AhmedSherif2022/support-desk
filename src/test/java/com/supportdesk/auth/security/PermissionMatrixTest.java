@@ -63,7 +63,8 @@ class PermissionMatrixTest
             Map.entry("/api/queue/**",          Set.of(AGENT)),
             Map.entry("/api/guides/**",         Set.of(AGENT)),
             Map.entry("/api/guide-runs/**",     Set.of(AGENT)),
-            Map.entry("/api/incidents/**",      Set.of(AGENT)));                    // E6-S3: grouped outages (read)
+            Map.entry("/api/incidents/**",      Set.of(AGENT)),                     // E6-S3: grouped outages (read)
+            Map.entry("/api/service-health/**", Set.of(AGENT)));                    // bank service status on the home screen
 
     private static final Map<Role, List<String>> SCREENS = Map.of(
             AGENT,       List.of("HOME", "CUSTOMER_SEARCH", "MY_TICKETS", "REVIEW_TICKETS", "NOTIFICATIONS"),
