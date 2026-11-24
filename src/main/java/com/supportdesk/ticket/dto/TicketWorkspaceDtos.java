@@ -28,7 +28,7 @@ public final class TicketWorkspaceDtos
     public record ContactDto(
             @Schema(example = "1") Long id,
             @Schema(example = "Told the customer the OTP issue is fixed and asked them to try again.") String note,
-            @Schema(example = "Mona") String author,
+            @Schema(example = "Mona Hassan") String author,
             @Schema(example = "2026-11-16T10:45:00Z") Instant time)
     {
     }

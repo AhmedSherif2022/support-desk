@@ -37,7 +37,7 @@ public record QueueTicketResponse(
         TicketPriority priority,
         @Schema(example = "TROUBLESHOOTING")
         TicketStatus status,
-        @Schema(example = "Mona")
+        @Schema(example = "Mona Hassan")
         String assignedAgent,
         @Schema(example = "AT_RISK")
         SlaState slaState,
