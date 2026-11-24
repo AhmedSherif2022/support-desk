@@ -55,7 +55,7 @@ public final class GuideDtos
             @Schema(description = "Set once the answers lead to an outcome. On an ABANDONED run it was reached but "
                     + "never applied.", nullable = true) OutcomeDto outcome,
             @Schema(example = "2026-11-16T10:35:00Z") Instant startedAt,
-            @Schema(description = "Full name of the agent who started it.", example = "Mona") String startedBy,
+            @Schema(description = "Full name of the agent who started it.", example = "Mona Hassan") String startedBy,
             @Schema(description = "When the run was completed or abandoned; null while it is open.",
                     example = "2026-11-16T10:41:00Z", types = {"string", "null"}) Instant completedAt)
     {
@@ -138,7 +138,7 @@ public final class GuideDtos
             @Schema(description = "The question as it reads on that version.", example = "Is the app on version 5.2 or later?")
             String question,
             @Schema(description = "Username of the agent who flagged it.", example = "mona") String agentUsername,
-            @Schema(description = "Full name of the agent who flagged it.", example = "Mona") String agentName,
+            @Schema(description = "Full name of the agent who flagged it.", example = "Mona Hassan") String agentName,
             @Schema(example = "This step is unclear") String comment,
             @Schema(example = "OPEN") GuideFeedbackStatus status,
             @Schema(example = "2026-11-16T10:35:00Z") Instant createdAt)

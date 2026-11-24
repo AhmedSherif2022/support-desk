@@ -34,7 +34,8 @@ public final class Permissions
             new Rule("/api/queue/**",          Set.of(Role.AGENT)),
             new Rule("/api/guides/**",         Set.of(Role.AGENT)),
             new Rule("/api/guide-runs/**",     Set.of(Role.AGENT)),
-            new Rule("/api/incidents/**",      Set.of(Role.AGENT))             // E6-S3: read grouped outages
+            new Rule("/api/incidents/**",      Set.of(Role.AGENT)),            // E6-S3: read grouped outages
+            new Rule("/api/service-health/**", Set.of(Role.AGENT))             // bank service status on the home screen
 
 
     );

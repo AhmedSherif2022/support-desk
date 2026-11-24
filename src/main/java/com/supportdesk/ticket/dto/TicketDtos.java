@@ -113,7 +113,7 @@ public final class TicketDtos
             @Schema(example = "MOBILE") Platform platform,
             @Schema(description = "The customer's latest error code for this service, or the category's default. Null when neither exists.", example = "PAY_TIMEOUT") String errorCode,
             @Schema(example = "TRX-2026-01111") String reference,
-            @Schema(example = "Mona") String assignedAgent,
+            @Schema(example = "Mona Hassan") String assignedAgent,
             @Schema(example = "AT_RISK") SlaState slaState,
             @Schema(description = "When the SLA target runs out. Time spent paused moves it later.", example = "2026-11-16T17:30:00Z") Instant slaDueAt,
             @Schema(description = "Steps the current user can take on the ticket now: its action buttons. "
