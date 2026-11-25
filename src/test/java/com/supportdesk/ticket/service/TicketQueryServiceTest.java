@@ -5,6 +5,7 @@ import com.supportdesk.customer.entity.Customer;
 import com.supportdesk.customer.enums.Platform;
 import com.supportdesk.guide.service.GuideMatcher;
 import com.supportdesk.ticket.enums.QueueChip;
+import com.supportdesk.ticket.enums.QueueSort;
 import com.supportdesk.ticket.config.TicketProperties;
 import com.supportdesk.ticket.dto.QueueResponse;
 import com.supportdesk.ticket.dto.QueueTicketResponse;
@@ -73,7 +74,8 @@ class TicketQueryServiceTest
         Ticket pausedTicket = open(4L, 2004L, TicketPriority.MEDIUM, NOW.minus(Duration.ofHours(10)));
         pausedTicket.moveTo(TicketStatus.WAITING_ON_CUSTOMER, NOW.minus(Duration.ofHours(8)));
 
-        when(tickets.findByStatusNotIn(anyCollection())).thenReturn(List.of(
+        // lenient: the comparator test sorts rows directly and never reads the repository
+        lenient().when(tickets.findByStatusNotIn(anyCollection())).thenReturn(List.of(
                 open(1L, 2001L, TicketPriority.LOW, NOW.minus(Duration.ofHours(2))),
                 open(2L, 2002L, TicketPriority.HIGH, NOW.minus(Duration.ofHours(6).plusMinutes(24))),
                 open(3L, 2003L, TicketPriority.CRITICAL, NOW.minus(Duration.ofMinutes(180))),
@@ -83,7 +85,7 @@ class TicketQueryServiceTest
     @Test
     void wholeQueueIsRiskiestFirstWithPausedLastAndCountsEveryChip()
     {
-        QueueResponse queue = query.queue(null);
+        QueueResponse queue = query.queue(null, null);
 
         assertThat(queue.chip()).isEqualTo(QueueChip.ALL);
         assertThat(queue.tickets()).extracting(QueueTicketResponse::number)
@@ -99,7 +101,7 @@ class TicketQueryServiceTest
     @Test
     void atRiskChipShowsAtRiskAndBreachedAndKeepsTheOtherCounts()
     {
-        QueueResponse queue = query.queue(QueueChip.AT_RISK);
+        QueueResponse queue = query.queue(QueueChip.AT_RISK, null);
 
         assertThat(queue.tickets()).extracting(QueueTicketResponse::number, QueueTicketResponse::slaState)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("#2003", SlaState.BREACHED),
@@ -119,13 +121,13 @@ class TicketQueryServiceTest
         when(tickets.findByStatusNotIn(anyCollection())).thenReturn(List.of(
                 open(3L, 2003L, TicketPriority.CRITICAL, NOW.minus(Duration.ofMinutes(180))), confirm, auto));
 
-        QueueResponse all = query.queue(QueueChip.ALL);
+        QueueResponse all = query.queue(QueueChip.ALL, null);
         assertThat(all.counts()).containsEntry("IN_REVIEW", 1L).containsEntry("AUTO_CREATED", 1L);
 
-        assertThat(query.queue(QueueChip.IN_REVIEW).tickets()).singleElement()
+        assertThat(query.queue(QueueChip.IN_REVIEW, null).tickets()).singleElement()
                 .extracting(QueueTicketResponse::number, QueueTicketResponse::nextActionLabel)
                 .containsExactly("#2005", "Confirm fix");
-        assertThat(query.queue(QueueChip.AUTO_CREATED).tickets()).singleElement()
+        assertThat(query.queue(QueueChip.AUTO_CREATED, null).tickets()).singleElement()
                 .extracting(QueueTicketResponse::number, QueueTicketResponse::origin, QueueTicketResponse::errorCode)
                 .containsExactly("#2006", TicketOrigin.AUTO_CREATED, "ERR_AUTH_503");
     }
@@ -142,11 +144,101 @@ class TicketQueryServiceTest
         when(tickets.findByStatusNotIn(anyCollection()))
                 .thenReturn(List.of(highWarning, criticalPaused, criticalRunning));
 
-        QueueResponse queue = query.queue(QueueChip.ALL);
+        QueueResponse queue = query.queue(QueueChip.ALL, null);
 
         assertThat(queue.tickets()).extracting(QueueTicketResponse::number)
                 .containsExactly("#2012", "#2010", "#2011");
         assertThat(queue.tickets().get(2).nextActionLabel()).isEqualTo("Resume");
+    }
+
+    @Test
+    void slaSortIsTheDefaultAndMatchesTheRiskOrder()
+    {
+        List<String> byDefault = query.queue(null, null).tickets().stream().map(QueueTicketResponse::number).toList();
+        List<String> bySla = query.queue(null, QueueSort.SLA).tickets().stream().map(QueueTicketResponse::number).toList();
+
+        assertThat(byDefault).containsExactly("#2003", "#2002", "#2001", "#2004");
+        assertThat(bySla).isEqualTo(byDefault);
+    }
+
+    @Test
+    void prioritySortPutsCriticalFirstThenHighMediumLowAndPausedLast()
+    {
+        // SLA order would be LOW (breached), MEDIUM (83%), HIGH (37%), HIGH (12%), CRITICAL (8%), paused CRITICAL
+        Ticket lowBreached = open(20L, 2020L, TicketPriority.LOW, NOW.minus(Duration.ofHours(80)));
+        Ticket mediumWarning = open(21L, 2021L, TicketPriority.MEDIUM, NOW.minus(Duration.ofHours(20)));
+        Ticket highOlder = open(22L, 2022L, TicketPriority.HIGH, NOW.minus(Duration.ofHours(3)));
+        Ticket highNewer = open(23L, 2023L, TicketPriority.HIGH, NOW.minus(Duration.ofHours(1)));
+        Ticket criticalFresh = open(24L, 2024L, TicketPriority.CRITICAL, NOW.minus(Duration.ofMinutes(10)));
+        Ticket criticalPaused = open(25L, 2025L, TicketPriority.CRITICAL, NOW.minus(Duration.ofMinutes(100)));
+        criticalPaused.moveTo(TicketStatus.WAITING_ON_CUSTOMER, NOW.minus(Duration.ofMinutes(5)));
+
+        when(tickets.findByStatusNotIn(anyCollection())).thenReturn(List.of(
+                lowBreached, highNewer, criticalPaused, mediumWarning, criticalFresh, highOlder));
+
+        QueueResponse bySla = query.queue(QueueChip.ALL, QueueSort.SLA);
+        assertThat(bySla.tickets()).extracting(QueueTicketResponse::number)
+                .containsExactly("#2020", "#2021", "#2022", "#2023", "#2024", "#2025");
+
+        QueueResponse byPriority = query.queue(QueueChip.ALL, QueueSort.PRIORITY);
+        assertThat(byPriority.tickets()).extracting(QueueTicketResponse::number)
+                .containsExactly("#2024", "#2022", "#2023", "#2021", "#2020", "#2025");   // ties inside HIGH in SLA order
+        assertThat(byPriority.tickets()).extracting(QueueTicketResponse::priority)
+                .containsExactly(TicketPriority.CRITICAL, TicketPriority.HIGH, TicketPriority.HIGH,
+                        TicketPriority.MEDIUM, TicketPriority.LOW, TicketPriority.CRITICAL);
+        assertThat(byPriority.tickets().get(5).paused()).isTrue();
+        assertThat(byPriority.counts()).isEqualTo(bySla.counts());
+    }
+
+    @Test
+    void prioritySortIsAppliedBeforeTheChipFilter()
+    {
+        Ticket lowBreached = open(30L, 2030L, TicketPriority.LOW, NOW.minus(Duration.ofHours(80)));
+        Ticket highAtRisk = open(31L, 2031L, TicketPriority.HIGH, NOW.minus(Duration.ofHours(7)));
+        Ticket criticalBreached = open(32L, 2032L, TicketPriority.CRITICAL, NOW.minus(Duration.ofHours(3)));
+        Ticket mediumFresh = open(33L, 2033L, TicketPriority.MEDIUM, NOW.minus(Duration.ofHours(1)));
+
+        when(tickets.findByStatusNotIn(anyCollection())).thenReturn(List.of(
+                lowBreached, highAtRisk, criticalBreached, mediumFresh));
+
+        QueueResponse atRisk = query.queue(QueueChip.AT_RISK, QueueSort.PRIORITY);
+
+        assertThat(atRisk.tickets()).extracting(QueueTicketResponse::number)
+                .containsExactly("#2032", "#2031", "#2030");
+        assertThat(atRisk.counts()).containsEntry("ALL", 4L).containsEntry("AT_RISK", 3L);
+    }
+
+    @Test
+    void comparatorsOrderRowsDirectly()
+    {
+        QueueTicketResponse lowBreached = row(1L, TicketPriority.LOW, 120, -600L, false);
+        QueueTicketResponse mediumHalf = row(2L, TicketPriority.MEDIUM, 50, 3600L, false);
+        QueueTicketResponse highLate = row(3L, TicketPriority.HIGH, 70, 1800L, false);
+        QueueTicketResponse highEarly = row(4L, TicketPriority.HIGH, 70, 900L, false);
+        QueueTicketResponse criticalFresh = row(5L, TicketPriority.CRITICAL, 5, 7000L, false);
+        QueueTicketResponse criticalPaused = row(6L, TicketPriority.CRITICAL, 90, 600L, true);
+        List<QueueTicketResponse> rows = List.of(mediumHalf, criticalPaused, highLate, criticalFresh, lowBreached, highEarly);
+
+        assertThat(rows.stream().sorted(TicketQueryService.order(QueueSort.SLA)).map(QueueTicketResponse::id))
+                .containsExactly(1L, 4L, 3L, 2L, 5L, 6L);
+        assertThat(rows.stream().sorted(TicketQueryService.riskOrder()).map(QueueTicketResponse::id))
+                .containsExactly(1L, 4L, 3L, 2L, 5L, 6L);
+        assertThat(rows.stream().sorted(TicketQueryService.order(QueueSort.PRIORITY)).map(QueueTicketResponse::id))
+                .containsExactly(5L, 4L, 3L, 2L, 1L, 6L);
+
+        // and the service applies exactly these comparators to the loaded tickets
+        assertThat(query.queue(null, QueueSort.PRIORITY).tickets()).extracting(QueueTicketResponse::number)
+                .containsExactly("#2003", "#2002", "#2001", "#2004");
+    }
+
+    private static QueueTicketResponse row(Long id, TicketPriority priority, int percentUsed, long remainingSeconds,
+            boolean paused)
+    {
+        return new QueueTicketResponse(id, "#" + (2000 + id), "Ticket", "CIF-100245", "Sara Mahmoud", null,
+                "Payments / Payment Failed", Platform.MOBILE, null, TicketOrigin.MANUAL, priority,
+                paused ? TicketStatus.WAITING_ON_CUSTOMER : TicketStatus.TROUBLESHOOTING, "Mona",
+                percentUsed >= 100 ? SlaState.BREACHED : SlaState.ON_TRACK, "label", NOW, percentUsed,
+                remainingSeconds, paused, null, null);
     }
 
     private Ticket open(Long id, Long ticketNumber, TicketPriority priority, Instant startedAt)

@@ -71,6 +71,7 @@ Other changes:
 
 - **`activeGuideRunId` on the ticket** (`GET /api/tickets/{number}`): the unfinished guide run while the ticket is Troubleshooting, otherwise null. After a reload, reopen the run from it, because starting again gets 409 `GUIDE_RUN_ALREADY_ACTIVE` (E4-S2).
 - **`sort` on `GET /api/tickets`**: only `createdAt` (the default, newest first), `ticketNumber`, `priority`, `status` and `slaDueAt`. Any other field gets 400 `REQUEST_ERROR`.
+- **`sort` on `GET /api/tickets/queue`**: `SLA` (the default: paused last, then the highest SLA % used, the least time left, the lower id) or `PRIORITY` (paused last, then CRITICAL, HIGH, MEDIUM, LOW, ties in SLA order). The chip filters the sorted list. Any other value gets 400 `REQUEST_ERROR` (E3-S4).
 - **The Home "My tickets" badge** is `totalItems` of `GET /api/tickets?view=OPEN`.
 - **`suggestedGuide` on the diagnosis** (`GET /api/customers/{cif}/diagnosis`): the live guide for the top failure's error code, for "Run guide". A run needs a ticket: create it with `errorCode` set to `topFailure.errorCode` and a platform the customer failed on, then start the guide on it (E2-S4).
 - **Guide run status `ABANDONED`**: a run ended by a new start without its outcome applied. `COMPLETED` now always means the outcome was applied.
@@ -83,7 +84,7 @@ Other changes:
 | Auth (E1) | `POST /api/auth/login` · `POST /api/auth/refresh` · `POST /api/auth/logout` · `GET /api/auth/me` |
 | Audit (E1) | `GET /api/audit/logs` (Admin, Reviewer) |
 | Customers (E2) | `GET /api/customers/search` · `POST /api/customers/{cif}/verify` · `POST /api/customers/{cif}/verification-failed` · `GET /api/customers/{cif}/verification` · `POST /api/customers/{cif}/end-call` · `GET /api/customers/{cif}` · `POST /api/customers/{cif}/reveal` · `GET /api/customers/{cif}/diagnosis` · `GET /api/customers/{cif}/activity` · `GET /api/customers/{cif}/tickets` |
-| Tickets (E3) | `GET /api/tickets/categories` · `POST /api/tickets/precheck` · `POST /api/tickets` · `GET /api/tickets` · `GET /api/tickets/queue` · `GET /api/tickets/{number}` · `POST /api/tickets/{number}/steps` · `GET` and `POST /api/tickets/{number}/contacts` · `GET /api/tickets/{number}/timeline` · `GET /api/tickets/{number}/audit` |
+| Tickets (E3) | `GET /api/tickets/categories` · `POST /api/tickets/precheck` · `POST /api/tickets` · `GET /api/tickets` · `GET /api/tickets/queue` (`chip`, and `sort` = `SLA` or `PRIORITY`) · `GET /api/tickets/{number}` · `POST /api/tickets/{number}/steps` · `GET` and `POST /api/tickets/{number}/contacts` · `GET /api/tickets/{number}/timeline` · `GET /api/tickets/{number}/audit` |
 | Ticket review | `GET /api/review/tickets` · `GET /api/review/tickets/{number}` · `POST /api/review/tickets/{number}/steps` (Agent, Reviewer) |
 | Guide feedback (E4, E8) | `GET /api/admin/guide-feedback` · `POST /api/admin/guide-feedback/{id}/done` (Guide Admin) |
 | Incidents (E6) | `GET /api/incidents` · `GET /api/incidents/{id}` · `GET /api/incidents/{id}/tickets` (Agent) |
@@ -243,7 +244,8 @@ As an Agent, I want one SLA number with a meter, so that I see risk at a glance.
 
 As an Agent, I want one queue ordered by risk, so that I work top-down.
 
-- Given open tickets, then Home lists them ordered by SLA used, with paused tickets at the bottom.
+- Given open tickets, then Home lists them ordered by SLA used, with paused tickets at the bottom (`GET /api/tickets/queue`; `sort=SLA`, the default).
+- Given `sort=PRIORITY`, then Home lists them Critical, High, Medium, Low, with paused tickets still at the bottom and ties inside a priority in SLA order; the chips filter the sorted list and their counts do not change. Any other `sort` value is 400 `REQUEST_ERROR`.
 - Given each row, then it shows ID, issue, customer, segment, platform, error code, SLA state, origin and one named action.
 - Given filter chips All, At risk, Confirm fix, Auto-created, then counts are shown and the list filters.
 - Given tickets waiting for Guide Admin triage, then they are not in this queue.

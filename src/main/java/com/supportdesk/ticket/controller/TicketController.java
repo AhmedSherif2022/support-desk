@@ -2,6 +2,7 @@ package com.supportdesk.ticket.controller;
 
 import com.supportdesk.common.dto.PageResponse;
 import com.supportdesk.ticket.enums.QueueChip;
+import com.supportdesk.ticket.enums.QueueSort;
 import com.supportdesk.ticket.enums.TicketListView;
 import com.supportdesk.ticket.dto.QueueResponse;
 import com.supportdesk.ticket.dto.TicketDtos.CategoryDto;
@@ -56,9 +57,9 @@ public class TicketController implements TicketApi
     }
 
     @Override
-    public QueueResponse queue(QueueChip chip)
+    public QueueResponse queue(QueueChip chip, QueueSort sort)
     {
-        return ticketQueryService.queue(chip);
+        return ticketQueryService.queue(chip, sort);
     }
 
     @Override

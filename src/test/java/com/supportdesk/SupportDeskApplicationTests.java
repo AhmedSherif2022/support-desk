@@ -31,7 +31,7 @@ class SupportDeskApplicationTests
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tags[*].name", containsInAnyOrder("Audit", "Auth", "Customers", "Tickets",
                         "Guides", "Guide runs", "Guide feedback", "Ticket review", "Monitor job", "Incidents",
-                        "Incident settings", "Ticket categories (admin)")))
+                        "Incident settings", "Ticket categories (admin)", "Service health", "Service health settings")))
                 .andExpect(jsonPath("$.paths['/api/auth/login'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/admin/categories'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/admin/categories'].post").exists())
@@ -62,7 +62,9 @@ class SupportDeskApplicationTests
                 .andExpect(jsonPath("$.paths['/api/admin/guide-feedback'].get").exists())
                 .andExpect(jsonPath("$.components.schemas.QueueResponse").exists())
                 // agent APIs: every enum they expose is one shared, described schema; no backlog ids in titles
-                .andExpect(jsonPath("$.components.schemas['TicketPriority','SlaState','TicketOrigin','Platform','Segment','EnrollmentStatus','QueueChip','GuideRunStatus','GuideFeedbackStatus','OutcomeType','Role','AuditAction'].description", everyItem(not(emptyOrNullString()))))
+                .andExpect(jsonPath("$.components.schemas['TicketPriority','SlaState','TicketOrigin','Platform','Segment','EnrollmentStatus','QueueChip','QueueSort','GuideRunStatus','GuideFeedbackStatus','OutcomeType','Role','AuditAction'].description", everyItem(not(emptyOrNullString()))))
+                .andExpect(jsonPath("$.paths['/api/tickets/queue'].get.parameters[?(@.name == 'sort')].schema['$ref']")
+                        .value(hasItem("#/components/schemas/QueueSort")))
                 .andExpect(jsonPath("$.components.schemas.QueueTicketResponse.properties.slaState['$ref']")
                         .value("#/components/schemas/SlaState"))
                 .andExpect(jsonPath("$.paths['/api/customers/search'].get.summary").value("Search customers"))

@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import com.supportdesk.ticket.enums.QueueChip;
+import com.supportdesk.ticket.enums.QueueSort;
 import com.supportdesk.ticket.dto.QueueResponse;
 import com.supportdesk.ticket.dto.TicketDtos.CategoryDto;
 import com.supportdesk.ticket.dto.TicketDtos.CreateTicketRequest;
@@ -100,11 +101,15 @@ public interface TicketApi
     @GetMapping("/queue")
     @Operation(summary = "Home queue",
             description = "Every agent's open tickets: the queue is shared by the team, not filtered to the current "
-                    + "agent (My tickets is). Order: paused tickets last; otherwise the highest SLA % used first, then "
-                    + "the least time left, then the lower id. Each row names one next action. Counts cover every chip "
-                    + "even when one chip is selected. Every open ticket is returned (no paging).")
+                    + "agent (My tickets is). Order, chosen by sort: SLA (the default) puts paused tickets last; "
+                    + "otherwise the highest SLA % used first, then the least time left, then the lower id. PRIORITY "
+                    + "puts paused tickets last; otherwise CRITICAL, HIGH, MEDIUM, then LOW, with ties inside a "
+                    + "priority in SLA order. The chip filters the sorted list, so every chip uses the same order. "
+                    + "Each row names one next action. Counts cover every chip even when one chip is selected. Every "
+                    + "open ticket is returned (no paging).")
     @ApiResponse(responseCode = "200", description = "The open queue and chip counts")
-    @ApiResponse(responseCode = "400", description = "REQUEST_ERROR: chip is not ALL, AT_RISK, IN_REVIEW, or AUTO_CREATED",
+    @ApiResponse(responseCode = "400", description = "REQUEST_ERROR: chip is not ALL, AT_RISK, IN_REVIEW, or "
+            + "AUTO_CREATED, or sort is not SLA or PRIORITY",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     @ApiResponse(responseCode = "401", description = "UNAUTHORIZED: no token, or it expired",
             content = @Content(schema = @Schema(implementation = ApiError.class)))
@@ -112,7 +117,9 @@ public interface TicketApi
             content = @Content(schema = @Schema(implementation = ApiError.class)))
     QueueResponse queue(
             @Parameter(description = "ALL, AT_RISK (at risk or breached), IN_REVIEW (an SRE fix on its way to review or waiting for confirmation: the screen's \"Confirm fix\" chip) or AUTO_CREATED. Omitted or empty means ALL.", example = "ALL")
-            @RequestParam(required = false) QueueChip chip);
+            @RequestParam(required = false) QueueChip chip,
+            @Parameter(description = "SLA (paused last, then the highest SLA % used, the least time left, the lower id) or PRIORITY (paused last, then CRITICAL, HIGH, MEDIUM, LOW, ties in SLA order). Omitted or empty means SLA.", example = "PRIORITY")
+            @RequestParam(required = false) QueueSort sort);
 
     @GetMapping("/{number}")
     @Operation(summary = "Get ticket by number",
