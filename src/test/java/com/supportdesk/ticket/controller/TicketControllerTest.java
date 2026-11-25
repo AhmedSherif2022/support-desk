@@ -8,6 +8,7 @@ import com.supportdesk.auth.security.SecurityErrorWriter;
 import com.supportdesk.auth.service.JwtService;
 import com.supportdesk.common.config.ClockConfig;
 import com.supportdesk.ticket.enums.QueueChip;
+import com.supportdesk.ticket.enums.QueueSort;
 import com.supportdesk.ticket.dto.QueueResponse;
 import com.supportdesk.ticket.dto.QueueTicketResponse;
 import com.supportdesk.ticket.enums.SlaState;
@@ -79,7 +80,7 @@ class TicketControllerTest
                                 "Payments / Payment Failed", null, null, null, TicketPriority.HIGH,
                                 TicketStatus.TROUBLESHOOTING, "Mona", SlaState.AT_RISK, "1h 30m left", due, 81, 5400L, false,
                                 com.supportdesk.ticket.enums.NextAction.ESCALATE, "Escalate")));
-        when(ticketQueryService.queue(null)).thenReturn(sample);
+        when(ticketQueryService.queue(null, null)).thenReturn(sample);
 
         mockMvc.perform(get("/api/tickets/queue").with(loggedInAs(Role.AGENT)))
                 .andExpect(status().isOk())
@@ -100,7 +101,7 @@ class TicketControllerTest
     @EnumSource(value = QueueChip.class, names = {"AT_RISK", "IN_REVIEW", "AUTO_CREATED"})
     void agentCanFilterQueueBySlaChip(QueueChip chip) throws Exception
     {
-        when(ticketQueryService.queue(chip)).thenReturn(new QueueResponse(
+        when(ticketQueryService.queue(chip, null)).thenReturn(new QueueResponse(
                 chip,
                 Map.of("ALL", 4L, "AT_RISK", 2L, "IN_REVIEW", 1L, "AUTO_CREATED", 0L),
                 List.of()));
@@ -110,7 +111,44 @@ class TicketControllerTest
                 .andExpect(jsonPath("$.chip").value(chip.name()))
                 .andExpect(jsonPath("$.counts.ALL").value(4));
 
-        verify(ticketQueryService).queue(chip);
+        verify(ticketQueryService).queue(chip, null);
+    }
+
+    @ParameterizedTest
+    @EnumSource(QueueSort.class)
+    void agentCanChooseQueueSort(QueueSort sort) throws Exception
+    {
+        when(ticketQueryService.queue(null, sort)).thenReturn(new QueueResponse(
+                QueueChip.ALL,
+                Map.of("ALL", 4L, "AT_RISK", 2L, "IN_REVIEW", 1L, "AUTO_CREATED", 0L),
+                List.of()));
+
+        mockMvc.perform(get("/api/tickets/queue").param("sort", sort.name()).with(loggedInAs(Role.AGENT)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.chip").value("ALL"));
+
+        verify(ticketQueryService).queue(null, sort);
+    }
+
+    @Test
+    void emptySortMeansDefault() throws Exception
+    {
+        when(ticketQueryService.queue(null, null)).thenReturn(new QueueResponse(
+                QueueChip.ALL, Map.of("ALL", 0L, "AT_RISK", 0L, "IN_REVIEW", 0L, "AUTO_CREATED", 0L), List.of()));
+
+        mockMvc.perform(get("/api/tickets/queue").param("sort", "").with(loggedInAs(Role.AGENT)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.chip").value("ALL"));
+
+        verify(ticketQueryService).queue(null, null);
+    }
+
+    @Test
+    void unknownSortReturns400RequestError() throws Exception
+    {
+        mockMvc.perform(get("/api/tickets/queue").param("sort", "MAYBE").with(loggedInAs(Role.AGENT)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("REQUEST_ERROR"));
     }
 
     @Test

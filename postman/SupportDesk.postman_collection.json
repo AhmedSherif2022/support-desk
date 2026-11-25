@@ -479,6 +479,95 @@
             "method": "GET",
             "url": "{{baseUrl}}/api/tickets/queue?chip=AT_RISK"
           }
+        },
+        {
+          "name": "Queue sort SLA (the default)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Counts every chip', () => pm.expect(body.counts).to.have.keys('ALL', 'AT_RISK', 'IN_REVIEW', 'AUTO_CREATED'));",
+                  "pm.test('Running tickets: highest SLA % used first, then the least time left', () => {",
+                  "  const running = body.tickets.filter(t => !t.paused);",
+                  "  for (let i = 1; i < running.length; i++) {",
+                  "    const a = running[i - 1], b = running[i];",
+                  "    pm.expect(a.percentUsed > b.percentUsed || (a.percentUsed === b.percentUsed && a.remainingSeconds <= b.remainingSeconds)).to.eql(true);",
+                  "  }",
+                  "});",
+                  "pm.test('Paused tickets are at the bottom', () => {",
+                  "  const firstPaused = body.tickets.findIndex(t => t.paused);",
+                  "  if (firstPaused >= 0) body.tickets.slice(firstPaused).forEach(t => pm.expect(t.paused).to.eql(true));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/queue?sort=SLA",
+            "description": "Same as no sort: paused last; otherwise the highest SLA % used first, then the least time left, then the lower id."
+          }
+        },
+        {
+          "name": "Queue sort PRIORITY",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const rank = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };",
+                  "pm.test('Running tickets: CRITICAL, HIGH, MEDIUM, then LOW', () => {",
+                  "  const running = body.tickets.filter(t => !t.paused);",
+                  "  for (let i = 1; i < running.length; i++) pm.expect(rank[running[i - 1].priority]).to.be.at.most(rank[running[i].priority]);",
+                  "});",
+                  "pm.test('Ties inside a priority follow the SLA order', () => {",
+                  "  const running = body.tickets.filter(t => !t.paused);",
+                  "  for (let i = 1; i < running.length; i++) {",
+                  "    const a = running[i - 1], b = running[i];",
+                  "    if (a.priority === b.priority) pm.expect(a.percentUsed > b.percentUsed || (a.percentUsed === b.percentUsed && a.remainingSeconds <= b.remainingSeconds)).to.eql(true);",
+                  "  }",
+                  "});",
+                  "pm.test('Paused tickets are at the bottom', () => {",
+                  "  const firstPaused = body.tickets.findIndex(t => t.paused);",
+                  "  if (firstPaused >= 0) body.tickets.slice(firstPaused).forEach(t => pm.expect(t.paused).to.eql(true));",
+                  "});",
+                  "pm.test('Counts every chip', () => pm.expect(body.counts).to.have.keys('ALL', 'AT_RISK', 'IN_REVIEW', 'AUTO_CREATED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/queue?sort=PRIORITY",
+            "description": "Paused last; otherwise CRITICAL, HIGH, MEDIUM, then LOW, with ties inside a priority in SLA order. Chips filter the sorted list."
+          }
+        },
+        {
+          "name": "Queue sort MAYBE (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('REQUEST_ERROR', () => pm.expect(pm.response.json().code).to.eql('REQUEST_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/tickets/queue?sort=MAYBE",
+            "description": "sort must be SLA or PRIORITY."
+          }
         }
       ]
     },

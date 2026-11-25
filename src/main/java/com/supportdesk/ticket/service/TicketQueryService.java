@@ -3,11 +3,13 @@ package com.supportdesk.ticket.service;
 import com.supportdesk.guide.service.GuideMatcher;
 import com.supportdesk.ticket.enums.NextAction;
 import com.supportdesk.ticket.enums.QueueChip;
+import com.supportdesk.ticket.enums.QueueSort;
 import com.supportdesk.ticket.dto.QueueResponse;
 import com.supportdesk.ticket.dto.QueueTicketResponse;
 import com.supportdesk.ticket.enums.SlaState;
 import com.supportdesk.ticket.entity.Ticket;
 import com.supportdesk.ticket.enums.TicketOrigin;
+import com.supportdesk.ticket.enums.TicketPriority;
 import com.supportdesk.ticket.enums.TicketStatus;
 import com.supportdesk.ticket.repository.TicketRepository;
 import com.supportdesk.ticket.dto.SlaSnapshot;
@@ -24,7 +26,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 /**
- * The home queue (E3-S4): open tickets in risk order, with a count for every chip in the same call.
+ * The home queue (E3-S4): open tickets in risk or priority order, with a count for every chip in the same call.
  */
 @Service
 @RequiredArgsConstructor
@@ -37,15 +39,16 @@ public class TicketQueryService
     private final GuideMatcher guideMatcher;
 
     @Transactional(readOnly = true)
-    public QueueResponse queue(QueueChip chip)
+    public QueueResponse queue(QueueChip chip, QueueSort sort)
     {
         QueueChip selected = chip == null ? QueueChip.ALL : chip;
+        QueueSort order = sort == null ? QueueSort.SLA : sort;
         Instant now = slaService.now();
         Predicate<Ticket> hasGuide = guideMatcher.loadAvailability();
         // TODO (E8 triage): leave out tickets waiting for Guide Admin triage once that status exists.
         List<QueueTicketResponse> open = tickets.findByStatusNotIn(CLOSED_STATUSES).stream()
                 .map(ticket -> toResponse(ticket, now, hasGuide.test(ticket)))
-                .sorted(riskOrder())
+                .sorted(order(order))
                 .toList();
 
         List<QueueTicketResponse> visible = open.stream()
@@ -103,15 +106,38 @@ public class TicketQueryService
     }
 
     /**
+     * The comparator behind a sort option: SLA is {@link #riskOrder()}, PRIORITY is {@link #priorityOrder()}.
+     */
+    static Comparator<QueueTicketResponse> order(QueueSort sort)
+    {
+        return switch (sort) {
+            case SLA -> riskOrder();
+            case PRIORITY -> priorityOrder();
+        };
+    }
+
+    /**
      * Paused tickets last (nothing to do yet); otherwise the highest percent used first, then the least time
      * left, then id.
      */
-    private static Comparator<QueueTicketResponse> riskOrder()
+    static Comparator<QueueTicketResponse> riskOrder()
     {
         return Comparator.comparingInt(TicketQueryService::band)
                 .thenComparing(Comparator.comparingInt(QueueTicketResponse::percentUsed).reversed())
                 .thenComparingLong(QueueTicketResponse::remainingSeconds)
                 .thenComparing(QueueTicketResponse::id, Comparator.nullsLast(Long::compareTo));
+    }
+
+    /**
+     * Paused tickets last; otherwise the most urgent priority first (CRITICAL, HIGH, MEDIUM, LOW: the reverse of
+     * {@link TicketPriority}'s declared order), with ties inside a priority broken by {@link #riskOrder()}.
+     */
+    static Comparator<QueueTicketResponse> priorityOrder()
+    {
+        return Comparator.comparingInt(TicketQueryService::band)
+                .thenComparing(QueueTicketResponse::priority,
+                        Comparator.nullsLast(Comparator.<TicketPriority>naturalOrder().reversed()))
+                .thenComparing(riskOrder());
     }
 
     private static int band(QueueTicketResponse ticket)
