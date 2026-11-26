@@ -1,0 +1,7 @@
+# Test-only overrides, loaded on top of src/main/resources/application.yml (classpath:/config/ wins).
+supportdesk:
+  azure:
+    outbox:
+      # Tests run the Azure outbox worker themselves (OutboxWorker.runOnce). A scheduled run from another cached
+      # test context would send their messages through a different fake Azure DevOps.
+      poll-interval: 1h
