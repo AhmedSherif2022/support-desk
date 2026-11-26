@@ -45,6 +45,10 @@ public enum ErrorCode
     STEP_NOT_YOURS(HttpStatus.UNPROCESSABLE_ENTITY, "This step is taken by someone else: another role, a guide or the system."),
     REASON_REQUIRED(HttpStatus.UNPROCESSABLE_ENTITY, "Give a reason for this step."),
 
+    // escalation to SRE (E5)
+    ALREADY_ESCALATED(HttpStatus.CONFLICT, "This ticket is already escalated to SRE."),
+    ESCALATION_NOT_FOUND(HttpStatus.NOT_FOUND, "This ticket has not been escalated to SRE."),
+
     // guides
     GUIDE_NOT_FOUND(HttpStatus.NOT_FOUND, "This guide does not exist or has no live version."),
     GUIDE_RUN_NOT_FOUND(HttpStatus.NOT_FOUND, "This guide run does not exist."),

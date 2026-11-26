@@ -21,7 +21,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
         + "were grouped into one incident and set to CRITICAL\n"
         + "- INCIDENT_TICKETS_LINKED: later tickets of the same error and platform joined an existing incident\n"
         + "- SETTING_CHANGED: the Guide Admin changed a runtime setting (the record holds the old and new value)\n"
-        + "- CATEGORY_CREATED: the Guide Admin added a ticket category or sub-category")
+        + "- CATEGORY_CREATED: the Guide Admin added a ticket category or sub-category\n"
+        + "- TICKET_ESCALATED: an agent escalated a ticket to SRE (reason and urgency; the work item is sent by the outbox)\n"
+        + "- AZURE_SYNC_FAILED: a call to Azure DevOps failed the maximum number of times; the failed-integration alert fired\n"
+        + "- AZURE_WEBHOOK_RECEIVED, SRE_UPDATE_REQUESTED, FIX_CONFIRMED, FIX_REJECTED: reserved for E5 Members 2 and 3")
 public enum AuditAction {
     ACCESS_DENIED,
     USER_LOGIN,
@@ -46,6 +49,12 @@ public enum AuditAction {
     INCIDENT_CREATED,
     INCIDENT_TICKETS_LINKED,
     SETTING_CHANGED,
-    CATEGORY_CREATED
+    CATEGORY_CREATED,
+    TICKET_ESCALATED,
+    AZURE_SYNC_FAILED,
+    AZURE_WEBHOOK_RECEIVED,
+    SRE_UPDATE_REQUESTED,
+    FIX_CONFIRMED,
+    FIX_REJECTED
 }
 

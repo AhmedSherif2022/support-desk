@@ -31,8 +31,12 @@ class SupportDeskApplicationTests
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tags[*].name", containsInAnyOrder("Audit", "Auth", "Customers", "Tickets",
                         "Guides", "Guide runs", "Guide feedback", "Ticket review", "Monitor job", "Incidents",
-                        "Incident settings", "Ticket categories (admin)", "Service health", "Service health settings")))
+                        "Incident settings", "Ticket categories (admin)", "Service health", "Service health settings",
+                        "Escalation to SRE")))
                 .andExpect(jsonPath("$.paths['/api/auth/login'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/tickets/{number}/escalation'].post").exists())
+                .andExpect(jsonPath("$.paths['/api/tickets/{number}/escalation'].get").exists())
+                .andExpect(jsonPath("$.paths['/api/admin/azure/outbox'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/admin/categories'].get").exists())
                 .andExpect(jsonPath("$.paths['/api/admin/categories'].post").exists())
                 .andExpect(jsonPath("$.paths['/api/admin/categories/{code}/subcategories'].get").exists())

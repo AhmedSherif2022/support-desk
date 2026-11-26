@@ -52,6 +52,20 @@ supportdesk:
     interval: 1m
     batch-size: 100
     duplicate-window: 24h
+  azure:                              # E5 Azure DevOps; secrets come from environment variables only
+    mode: ${AZURE_MODE:OFF}           # OFF: escalations wait as "pending"; REST: real Azure DevOps; FAKE: local/tests
+    organization: ${AZURE_ORG:}
+    project: ${AZURE_PROJECT:}
+    work-item-type: ${AZURE_WORK_ITEM_TYPE:Bug}
+    personal-access-token: ${AZURE_PAT:}
+    portal-base-url: ${PORTAL_BASE_URL:http://localhost:4200}
+    customer-token-secret: ${AZURE_CUSTOMER_TOKEN_SECRET:${JWT_SECRET}}   # HMAC key for the masked customer token
+    outbox:
+      poll-interval: 15s
+      batch-size: 20
+      max-attempts: 10                # E5-S3: then FAILED + failed-integration alert
+      first-retry-delay: 30s          # doubles after each failure ...
+      max-retry-delay: 1h             # ... up to this
 
 springdoc:
   swagger-ui:
